@@ -113,3 +113,19 @@ void print_config_file(){
     printf("%d\n", config->max_sensors);
     printf("%d\n", config->max_alerts);
 }
+
+void print(char *result){
+    char time_str[20];
+
+    time_t timer = time(NULL);
+    struct tm* tm_info = localtime(&timer);
+
+    strftime(time_str, 20, "%H:%M:%S", tm_info);
+
+    sem_wait(log_semaphore);
+    fprintf(log_file, "%s:%s\n",time_str,result);
+    printf("%s:%s\n",time_str,result);
+    fflush(log_file);
+    fflush(stdout);
+    sem_post(log_semaphore);
+}

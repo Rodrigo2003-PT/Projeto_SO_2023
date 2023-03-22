@@ -18,6 +18,15 @@
 #include <signal.h>
 #include <sys/time.h>
 
+#define MAX_SENSOR_ID_SIZE 32
+#define MIN_SENSOR_ID_SIZE 3
+#define MAX_KEY_SIZE 32
+#define MIN_KEY_SIZE 3
+
+#define MAX_ID_LENGTH 32
+#define MAX_COMMAND_LENGTH 50
+#define MAX_RESPONSE_LENGTH 200
+
 typedef struct config_struct{
     int queue_slot_number;
     int num_workers;
@@ -26,7 +35,40 @@ typedef struct config_struct{
     int max_alerts;
 }config_struct;
 
+typedef struct sensor_struct {
+  char id[MAX_SENSOR_ID_SIZE + 1];
+  int intervalo;
+  char chave[MAX_KEY_SIZE + 1];
+  int valor_min;
+  int valor_max;
+  int num_mensagens_enviadas;
+}sensor_struct;
+
+typedef struct user_console{
+    char id[MAX_ID_LENGTH];
+    int console_pipe;
+    int message_queue;
+} user_console;
+
+typedef struct user_console_message{
+    char command[MAX_COMMAND_LENGTH];
+    char response[MAX_RESPONSE_LENGTH];
+} user_console_message;
+
 //Struct to save config files
 config_struct *config;
+
+//Main PID
+pid_t main_pid;
+
+//Shared memory id
+int shm_id;
+
+//Message Queue ID
+int msq_id;
+
+//Log file management
+FILE *log_file;
+sem_t *log_semaphore;
 
 #endif
