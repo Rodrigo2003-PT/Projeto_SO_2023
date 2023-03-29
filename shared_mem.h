@@ -35,13 +35,22 @@ typedef struct config_struct{
     int max_alerts;
 }config_struct;
 
+typedef struct sensor_data{
+    int last_value;
+    int min_value;
+    int max_value;
+    int count;
+    double avg;
+}sensor_data;
+
 typedef struct sensor_struct {
   char id[MAX_SENSOR_ID_SIZE + 1];
-  int intervalo;
   char chave[MAX_KEY_SIZE + 1];
-  int valor_min;
-  int valor_max;
-  int num_mensagens_enviadas;
+  sensor_data data[5];
+  int alert_min;
+  int alert_max;
+  int alert_flag;
+  int intervalo;
 }sensor_struct;
 
 typedef struct user_console{
@@ -70,5 +79,9 @@ int msq_id;
 //Log file management
 FILE *log_file;
 sem_t *log_semaphore;
+
+//Shared memory locations
+sensor_struct *sensor;
+int *first_worker;
 
 #endif
