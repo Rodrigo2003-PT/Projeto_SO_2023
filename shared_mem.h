@@ -84,4 +84,8 @@ sem_t *log_semaphore;
 sensor_struct *sensor;
 int *first_worker;
 
+//Processes PIDS
+pid_t alerts_watcher_process;
+pid_t worker_process;
+
 #endif

@@ -25,6 +25,15 @@ int main(){
   //generate shared memory and control mechanisms
   init_program();
 
+  for(int i = 0; i < config->num_workers; i++){
+    worker_process = fork();
+    if(worker_process == 0) worker_init();
+  }
+
+  alerts_watcher_process = fork();
+  if(alerts_watcher_process == 0) alerts_watcher_init();
+  
+
 }
 
 void init_program(){
@@ -45,7 +54,7 @@ void init_program(){
   //Define first of each type for easy consulting
   first_worker = (int*) &sensor[config->max_sensors];
   
-  clean_data();
+  // clean_data();
 }
 
 //Log management
