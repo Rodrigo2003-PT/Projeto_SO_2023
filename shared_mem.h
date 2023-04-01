@@ -64,6 +64,11 @@ typedef struct user_console_message{
     char response[MAX_RESPONSE_LENGTH];
 } user_console_message;
 
+typedef struct worker_message{
+    user_console_message message;
+    sensor_struct sens;
+} worker_message;
+
 //Struct to save config files
 config_struct *config;
 
@@ -83,6 +88,7 @@ sem_t *log_semaphore;
 //Shared memory locations
 sensor_struct *sensor;
 int *first_worker;
+int count_key;
 
 //Processes PIDS
 pid_t alerts_watcher_process;

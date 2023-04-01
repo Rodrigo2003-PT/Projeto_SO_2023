@@ -40,7 +40,7 @@ void init_program(){
   //Generate global structure shared memory
 
   // shared_mem size incomplete
-  int shared_mem_size = (sizeof(sensor_struct) * config->max_sensors) + (sizeof(int) * config->num_workers);
+  int shared_mem_size = (sizeof(sensor_struct) * config->max_sensors) + (sizeof(int) * config->num_workers) + sizeof(int);
   if ((shm_id = shmget(IPC_PRIVATE, shared_mem_size, IPC_CREAT | IPC_EXCL | 0700)) < 1){
     print("Error in shmget with IPC_CREAT\n");
     exit(1);
@@ -53,6 +53,7 @@ void init_program(){
 
   //Define first of each type for easy consulting
   first_worker = (int*) &sensor[config->max_sensors];
+  count_key = *(first_worker + config->num_workers);
   
   // clean_data();
 }
