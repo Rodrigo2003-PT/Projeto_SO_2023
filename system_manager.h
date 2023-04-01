@@ -2,8 +2,10 @@
 #define system_manager  /* Include guard */
 
 //User libraries
+#include "alerts_watcher.h"
 #include "shared_mem.h"
 #include "functions.h"
+#include "worker.h"
 
 void init_program();
 void init_log();

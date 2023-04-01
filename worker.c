@@ -3,7 +3,7 @@
 void worker_init(worker_message *msg){
 
     // Se a mensagem for um dado do sensor
-    if (msg->sens.chave) {
+    if (msg->sens.data->chave) {
 
         if(count_key < config->max_keys){
 
@@ -14,7 +14,7 @@ void worker_init(worker_message *msg){
 
             for (int i = 0; i < config->max_sensors; i++) {
 
-                if (strcmp(sensor[i].chave, msg->sens.chave) == 0) {
+                if (strcmp(sensor[i].data->chave, msg->sens.data->chave) == 0) {
 
                     sensor[i].data->last_value = msg->sens.data->last_value;
 

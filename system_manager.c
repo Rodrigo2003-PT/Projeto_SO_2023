@@ -25,6 +25,8 @@ int main(){
   //generate shared memory and control mechanisms
   init_program();
 
+  create_named_pipe(PIPENAME);
+
   for(int i = 0; i < config->num_workers; i++){
     worker_process = fork();
     if(worker_process == 0) worker_init();
@@ -32,8 +34,6 @@ int main(){
 
   alerts_watcher_process = fork();
   if(alerts_watcher_process == 0) alerts_watcher_init();
-  
-
 }
 
 void init_program(){
@@ -64,4 +64,12 @@ void init_log(){
   sem_unlink(LOG_SEM_NAME);
   log_file = fopen("log.txt", "w");
   log_semaphore = sem_open(LOG_SEM_NAME, O_CREAT | O_EXCL, 0777, 1);
+}
+
+void create_named_pipe(char *name){
+  unlink(name);
+  if ((mkfifo(name, O_CREAT|O_EXCL|0600)<0) && (errno != EEXIST)){
+    print("CANNOT CREATE NAMED PIPE -> EXITING\n");
+    exit(1);
+  }
 }

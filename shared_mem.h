@@ -27,6 +27,8 @@
 #define MAX_COMMAND_LENGTH 50
 #define MAX_RESPONSE_LENGTH 200
 
+#define PIPENAME "SENSOR_PIPE"
+
 typedef struct config_struct{
     int queue_slot_number;
     int num_workers;
@@ -35,37 +37,29 @@ typedef struct config_struct{
     int max_alerts;
 }config_struct;
 
-typedef struct sensor_data{
+typedef struct sensor_chave{
+    char* chave;
     int last_value;
     int min_value;
     int max_value;
     int count;
     double avg;
-}sensor_data;
+}sensor_chave;
+
+typedef struct sensor_alerts{
+    int alert_min;
+    int alert_max;
+    int alert_flag;
+}sensor_alerts;
 
 typedef struct sensor_struct {
-  char id[MAX_SENSOR_ID_SIZE + 1];
-  char chave[MAX_KEY_SIZE + 1];
-  sensor_data data[5];
-  int alert_min;
-  int alert_max;
-  int alert_flag;
-  int intervalo;
+    char* id;
+    sensor_alerts alerts[3];
+    sensor_chave data[6];
+    int intervalo;
 }sensor_struct;
 
-typedef struct user_console{
-    char id[MAX_ID_LENGTH];
-    int console_pipe;
-    int message_queue;
-} user_console;
-
-typedef struct user_console_message{
-    char command[MAX_COMMAND_LENGTH];
-    char response[MAX_RESPONSE_LENGTH];
-} user_console_message;
-
 typedef struct worker_message{
-    user_console_message message;
     sensor_struct sens;
 } worker_message;
 
