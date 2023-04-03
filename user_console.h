@@ -4,6 +4,15 @@
 #include "shared_mem.h"
 #include "functions.h"
 
-void user_console_init();
+#define MAX_MSG_SIZE 256
+#define MAX_KEY_SIZE 32
+#define MAX_ID_SIZE 32
+#define MAX_ALERTS 10
+
+void start_user_console();
+void sigint_handler(int sig);
+void send_command(char *command);
+void *console_function(void *arg);
+void process_command(char *command);
 
 #endif

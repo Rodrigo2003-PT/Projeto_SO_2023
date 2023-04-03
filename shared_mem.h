@@ -27,7 +27,9 @@
 #define MAX_COMMAND_LENGTH 50
 #define MAX_RESPONSE_LENGTH 200
 
-#define PIPENAME "SENSOR_PIPE"
+#define PIPENAME_1 "SENSOR_PIPE"
+
+#define PIPENAME_2 "CONSOLE_PIPE"
 
 typedef struct config_struct{
     int queue_slot_number;
@@ -87,5 +89,8 @@ int count_key;
 //Processes PIDS
 pid_t alerts_watcher_process;
 pid_t worker_process;
+
+//Threads
+pthread_t console_reader_thread, sensor_reader_thread, console_thread;
 
 #endif

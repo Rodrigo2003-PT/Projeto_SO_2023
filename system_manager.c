@@ -25,7 +25,19 @@ int main(){
   //generate shared memory and control mechanisms
   init_program();
 
-  create_named_pipe(PIPENAME);
+  create_named_pipe(PIPENAME_1);
+  create_named_pipe(PIPENAME_2);
+
+  // Create threads
+  if (pthread_create(&console_reader_thread, NULL, console_reader, NULL) != 0) {
+      perror("Cannot create console thread: ");
+      exit(1);
+  }
+
+  if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,NULL) != 0) {
+      perror("Cannot create sensor thread: ");
+      exit(1);
+  }
 
   for(int i = 0; i < config->num_workers; i++){
     worker_process = fork();
@@ -73,3 +85,7 @@ void create_named_pipe(char *name){
     exit(1);
   }
 }
+
+void *sensor_reader(void *arg){return NULL;};
+
+void *console_reader(void *arg){return NULL;};

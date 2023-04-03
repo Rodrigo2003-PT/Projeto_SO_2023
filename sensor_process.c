@@ -1,9 +1,5 @@
 #include "sensor_process.h"
 
-#define MAX_KEY_LENGTH 32
-#define MAX_ID_LENGTH 32
-#define MESSAGE_SIZE 64
-
 int msg_sent = 0;
 
 int main(int argc, char *argv[]){
@@ -65,6 +61,7 @@ int main(int argc, char *argv[]){
             .avg = 0
         }
     },
+
     .intervalo = interval,
     .id = sensor_id,
     .alerts = {}
@@ -101,7 +98,7 @@ void send_message(char* id, char* key, int value) {
 
     sprintf(message, "%s#%s#%d\n", id, key, value);
 
-    if ((fd = open(PIPENAME, O_WRONLY)) < 0) {
+    if ((fd = open(PIPENAME_1, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writing: ");
             exit(0);
         }

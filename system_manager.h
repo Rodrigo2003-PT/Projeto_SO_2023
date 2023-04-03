@@ -10,6 +10,8 @@
 void init_program();
 void init_log();
 void create_named_pipe(char *name);
+void *sensor_reader(void *arg);
+void *console_reader(void *arg);
 void create_msq();
 
 #endif 
