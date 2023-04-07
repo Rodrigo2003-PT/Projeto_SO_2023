@@ -28,8 +28,17 @@ int main(){
   create_named_pipe(PIPENAME_1);
   create_named_pipe(PIPENAME_2);
 
+  create_msq();
+  
+  struct Queue* queue = createQueue();
+
   // Create threads
   if (pthread_create(&console_reader_thread, NULL, console_reader, NULL) != 0) {
+      perror("Cannot create console thread: ");
+      exit(1);
+  }
+
+    if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) queue) != 0) {
       perror("Cannot create console thread: ");
       exit(1);
   }
@@ -41,7 +50,7 @@ int main(){
 
   for(int i = 0; i < config->num_workers; i++){
     worker_process = fork();
-    if(worker_process == 0) worker_init();
+    if(worker_process == 0) worker_init(read_from_pipe());
   }
 
   alerts_watcher_process = fork();
@@ -86,6 +95,41 @@ void create_named_pipe(char *name){
   }
 }
 
+void create_msq(){
+  if((msq_id = msgget(IPC_PRIVATE, IPC_CREAT|0777)) == -1){
+    print("Error creating message queue");
+    exit(0);
+  }
+}
+
 void *sensor_reader(void *arg){return NULL;};
 
 void *console_reader(void *arg){return NULL;};
+
+void *dispatcher_reader(void *arg){
+
+  struct Queue* queue = (struct Queue*) arg;
+
+  while (1) {
+
+    // Check if there are messages in the queue
+    char *msg = dequeue(queue);
+
+    if (msg == NULL) {
+      usleep(100000); // sleep for 100ms
+      continue;
+    }
+
+    // Find a free worker
+
+    // No free workers, wait for one to become available
+
+    // Send the message to the worker
+
+    // Make worker busy
+
+    free(msg); // free memory allocated by queue_pop
+  }
+  
+  return NULL;
+};

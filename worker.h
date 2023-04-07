@@ -4,6 +4,14 @@
 #include "shared_mem.h"
 #include "functions.h"
 
-void worker_init();
+typedef struct worker_sensor {
+    char* id;
+    char* chave;
+    int value;
+}worker_sensor;
+
+void worker_init(char *msg);
+
+worker_sensor create_worker_sensor(char* msg);
 
 #endif

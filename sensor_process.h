@@ -4,9 +4,9 @@
 #include "shared_mem.h"
 #include "functions.h"
 
-#define MAX_KEY_LENGTH 32
-#define MAX_ID_LENGTH 32
-#define MESSAGE_SIZE 64
+#define MESSAGE_SIZE 1024
+#define MAX_LENGTH 32
+#define MIN_LENGTH 3
 
 pid_t sensor_pid;
 

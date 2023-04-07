@@ -24,7 +24,7 @@
 #define MIN_KEY_SIZE 3
 
 #define MAX_ID_LENGTH 32
-#define MAX_COMMAND_LENGTH 50
+#define MAX_COMMAND_LENGTH 256
 #define MAX_RESPONSE_LENGTH 200
 
 #define PIPENAME_1 "SENSOR_PIPE"
@@ -61,9 +61,15 @@ typedef struct sensor_struct {
     int intervalo;
 }sensor_struct;
 
-typedef struct worker_message{
-    sensor_struct sens;
-} worker_message;
+typedef struct Node {
+    char *command;
+    struct Node* next;
+}Node;
+
+typedef struct Queue {
+    struct Node* front;
+    struct Node* rear;
+}Queue;
 
 //Struct to save config files
 config_struct *config;
@@ -91,6 +97,6 @@ pid_t alerts_watcher_process;
 pid_t worker_process;
 
 //Threads
-pthread_t console_reader_thread, sensor_reader_thread, console_thread;
+pthread_t console_reader_thread, sensor_reader_thread, dispatcher_thread, console_thread, console_receive;
 
 #endif

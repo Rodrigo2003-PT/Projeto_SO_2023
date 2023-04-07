@@ -26,11 +26,11 @@ int main(int argc, char *argv[]){
     int max = atoi(argv[5]);
 
     // Validate input parameters
-    if (strlen(sensor_id) < 3 || strlen(sensor_id) > 32) {
+    if (strlen(sensor_id) < MIN_LENGTH || strlen(sensor_id) > MAX_LENGTH) {
         printf("Error: sensor id must be between 3 and 32 characters\n");
         exit(1);
     }
-    if (strlen(key) < 3 || strlen(key) > 32) {
+    if (strlen(key) < MIN_LENGTH || strlen(key) > MAX_LENGTH) {
         printf("Error: key must be between 3 and 32 characters\n");
         exit(1);
     }
@@ -87,6 +87,7 @@ void handle_sigtstp(int sig) {
 
 void handle_sigint(int sig) {
     printf("Sensor process terminated\n");
+    unlink(PIPENAME_1);
     exit(0);
 }
 

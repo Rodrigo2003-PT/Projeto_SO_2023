@@ -14,21 +14,18 @@ int main(int argc, char **argv){
     return 0;
 }
 
-void send_command(char *command) {
 
-    int pipe_fd;
+void start_user_console() {
 
-    if ((pipe_fd = open(PIPENAME_2, O_WRONLY)) < 0) {
-            perror("Cannot open pipe for writing: ");
-            exit(0);
-        }
-
-    if (write(pipe_fd, command, strlen(command)) == -1) {
-        perror("write");
+    if (pthread_create(&console_thread, NULL, console_function, NULL) != 0) {
+        perror("Cannot create console thread: ");
         exit(1);
     }
 
-    close(pipe_fd);
+    if (pthread_create(&console_receive, NULL, receive_function, NULL) != 0) {
+        perror("Cannot create console thread: ");
+        exit(1);
+    }
 }
 
 void process_command(char *command) {
@@ -36,6 +33,7 @@ void process_command(char *command) {
     char *token = strtok(command, " ");
 
     if (strcmp(token, "exit") == 0) {
+        unlink(PIPENAME_2);
         pthread_join(console_thread, NULL);
         exit(0);
     } 
@@ -95,24 +93,40 @@ void process_command(char *command) {
     }
 }
 
+void send_command(char *command) {
+
+    int pipe_fd;
+
+    if ((pipe_fd = open(PIPENAME_2, O_WRONLY)) < 0) {
+            perror("Cannot open pipe for writing: ");
+            exit(0);
+        }
+
+    if (write(pipe_fd, command, strlen(command)) == -1) {
+        perror("write");
+        exit(1);
+    }
+
+    close(pipe_fd);
+}
+
 void *console_function(void *arg){
 
     while (1) {
-        char command[MAX_COMMAND_LENGTH];
+        char command[MAX_MSG_SIZE];
         printf("> ");
         fflush(stdout);
-        fgets(command, MAX_COMMAND_LENGTH, stdin);
+        fgets(command, MAX_MSG_SIZE, stdin);
         command[strcspn(command, "\n")] = '\0';
         process_command(command);
     }
 }
 
-void start_user_console() {
-    pthread_create(&console_thread, NULL, console_function, NULL);
-}
+void *receive_function(void *arg){return NULL;}
 
 void sigint_handler(int sig) {
     printf("Console  process interrupted\n");
+    unlink(PIPENAME_2);
     pthread_cancel(console_thread);
     pthread_join(console_thread, NULL);
     exit(0);

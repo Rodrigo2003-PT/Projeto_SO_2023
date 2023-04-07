@@ -1,46 +1,56 @@
 #include "worker.h"
 
-void worker_init(worker_message *msg){
+void worker_init(char *msg){
 
-    // Se a mensagem for um dado do sensor
-    if (msg->sens.data->chave) {
+    char *result = strchr(msg, '#');
+    
+    // Se a mensagem for um dado da user_console
+    if(result == NULL){
+
+    }
+     // Se a mensagem for um dado do sensor
+    else{
+
+        worker_sensor ws = create_worker_sensor(msg);
 
         if(count_key < config->max_keys){
 
-            //Primeira vez a receber dados do sensor no sistema.
-            if(msg->sens.data->count == 0){
-                count_key++;
-            }
+            // Search for the sensor structure with the given key
+            for(int i = 0; i < config->max_sensors; i++){
+                if(strcmp(sensor[i].id, ws.id) == 0){
+                    // Found the sensor structure, now access its data fields
+                    sensor_chave* data = sensor[i].data;
 
-            for (int i = 0; i < config->max_sensors; i++) {
+                    for(int j = 0; j < 6; j++){
+                        if(strcmp(data[j].chave, ws.chave) == 0){
+                             //Primeira vez a receber dados do sensor no sistema.
+                            if(data[j].count == 0)count_key++;
 
-                if (strcmp(sensor[i].data->chave, msg->sens.data->chave) == 0) {
-
-                    sensor[i].data->last_value = msg->sens.data->last_value;
-
-                    if (msg->sens.data->min_value < sensor[i].data->min_value) {
-                        sensor[i].data->min_value = msg->sens.data->min_value;
+                            data[j].last_value = ws.value;
+                            data[j].avg = (data[j].last_value + data[j].min_value + data[j].max_value) / 3;
+                            if(ws.value < data[j].min_value)data[j].min_value = ws.value;
+                            if(ws.value > data[j].max_value)data[j].max_value = ws.value;
+                            data[j].count++;
+                            break;
+                        }
                     }
-
-                    if (msg->sens.data->max_value > sensor[i].data->max_value) {
-                        sensor[i].data->max_value = msg->sens.data->max_value;
-                    }
-
-                    sensor[i].data->avg = (msg->sens.data->last_value + msg->sens.data->min_value + msg->sens.data->max_value) / 3;
-                    
-                    sensor[i].data->count++;
 
                     break;
-                } 
-
+                }
             }
         }
-
         else
             print("Limite de chaves em armazenamento no sistema excedido");   
     }
+}
 
-    else {
-       
-    }
+worker_sensor create_worker_sensor(char* msg){
+    worker_sensor ws;
+    char* token = strtok(msg, "#");
+    ws.id = strdup(token);
+    token = strtok(NULL, "#");
+    ws.chave = strdup(token);
+    token = strtok(NULL, "#");
+    ws.value = atoi(token);
+    return ws;
 }

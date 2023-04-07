@@ -129,3 +129,51 @@ void print(char *result){
     fflush(stdout);
     sem_post(log_semaphore);
 }
+
+char *read_from_pipe(){return NULL;}
+
+// Function to create a new node
+struct Node* createNode(char *command) {
+    struct Node* newNode = (struct Node*)malloc(sizeof(struct Node));
+    newNode->command = command;
+    newNode->next = NULL;
+    return newNode;
+}
+
+// Function to create a new queue
+struct Queue* createQueue() {
+    struct Queue* newQueue = (struct Queue*)malloc(sizeof(struct Queue));
+    newQueue->front = newQueue->rear = NULL;
+    return newQueue;
+}
+
+// Function to check if the queue is empty
+int isEmpty(struct Queue* queue) {
+    return (queue->front == NULL);
+}
+
+// Function to add an element to the rear of the queue
+void enqueue(struct Queue* queue, char *command) {
+    struct Node* newNode = createNode(command);
+    if (isEmpty(queue)) {
+        queue->front = queue->rear = newNode;
+        return;
+    }
+    queue->rear->next = newNode;
+    queue->rear = newNode;
+}
+
+char* dequeue(struct Queue* queue) {
+    if (isEmpty(queue)) {
+        printf("Queue is empty\n");
+        return NULL;
+    }
+    struct Node* temp = queue->front;
+    char  *command = temp->command;
+    queue->front = temp->next;
+    free(temp);
+    if (queue->front == NULL) {
+        queue->rear = NULL;
+    }
+    return command;
+}
