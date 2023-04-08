@@ -26,6 +26,10 @@ void start_user_console() {
         perror("Cannot create console thread: ");
         exit(1);
     }
+
+    pthread_join(console_thread, NULL);
+
+    pthread_join(console_receive, NULL);
 }
 
 void process_command(char *command) {
@@ -34,7 +38,8 @@ void process_command(char *command) {
 
     if (strcmp(token, "exit") == 0) {
         unlink(PIPENAME_2);
-        pthread_join(console_thread, NULL);
+        pthread_cancel(console_thread);
+        pthread_cancel(console_receive);
         exit(0);
     } 
 
@@ -128,6 +133,6 @@ void sigint_handler(int sig) {
     printf("Console  process interrupted\n");
     unlink(PIPENAME_2);
     pthread_cancel(console_thread);
-    pthread_join(console_thread, NULL);
+    pthread_cancel(console_receive);
     exit(0);
 }

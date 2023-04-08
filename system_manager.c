@@ -38,15 +38,21 @@ int main(){
       exit(1);
   }
 
-    if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) queue) != 0) {
-      perror("Cannot create console thread: ");
-      exit(1);
+  pthread_join(console_reader_thread, NULL);
+  
+  if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) queue) != 0) {
+    perror("Cannot create console thread: ");
+    exit(1);
   }
+
+  pthread_join(dispatcher_thread, NULL);
 
   if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue) != 0) {
       perror("Cannot create sensor thread: ");
       exit(1);
   }
+
+  pthread_join(sensor_reader_thread, NULL);
 
   for(int i = 0; i < config->num_workers; i++){
     worker_process = fork();
@@ -55,6 +61,8 @@ int main(){
 
   alerts_watcher_process = fork();
   if(alerts_watcher_process == 0) alerts_watcher_init();
+
+  for(int i = 0; i < 2; i++)wait(NULL);
 }
 
 void init_program(){

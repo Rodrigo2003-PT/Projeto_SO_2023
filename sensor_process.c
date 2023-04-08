@@ -14,16 +14,16 @@ int main(int argc, char *argv[]){
 
     sensor_pid = getpid();
 
-    if (argc != 6) {
-        printf("Usage: sensor {sensor id} {interval} {key} {min} {max}\n");
+    if (argc != 7) {
+        printf("Usage: {sensor} {sensor id} {interval} {key} {min} {max}\n");
         exit(1);
     }
 
-    char *sensor_id = argv[1];
-    int interval = atoi(argv[2]);
-    char *key = argv[3];
-    int min = atoi(argv[4]);
-    int max = atoi(argv[5]);
+    char *sensor_id = argv[2];
+    int interval = atoi(argv[3]);
+    char *key = argv[4];
+    int min = atoi(argv[5]);
+    int max = atoi(argv[6]);
 
     // Validate input parameters
     if (strlen(sensor_id) < MIN_LENGTH || strlen(sensor_id) > MAX_LENGTH) {
@@ -99,10 +99,14 @@ void send_message(char* id, char* key, int value) {
 
     sprintf(message, "%s#%s#%d\n", id, key, value);
 
+    printf("%s",message);
+
     if ((fd = open(PIPENAME_1, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writing: ");
             exit(0);
-        }
+    }
+
+    // Perguntar ao stor porque é que há um freeze aqui!
 
     if (write(fd, message, strlen(message)) == -1) {
         perror("write");
