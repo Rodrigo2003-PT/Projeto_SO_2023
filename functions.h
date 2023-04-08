@@ -17,6 +17,7 @@ void print_config_file();
 struct Queue* createQueue();
 int isEmpty(struct Queue* queue);
 char* dequeue(struct Queue* queue);
+int queue_size(struct Queue* queue);
 struct Node* createNode(char *command);
 void process_config_file(int *configs);
 void enqueue(struct Queue* queue, char *command);

@@ -20,6 +20,7 @@
 
 #define MAX_SENSOR_ID_SIZE 32
 #define MIN_SENSOR_ID_SIZE 3
+#define MESSAGE_SIZE 1024
 #define MAX_KEY_SIZE 32
 #define MIN_KEY_SIZE 3
 

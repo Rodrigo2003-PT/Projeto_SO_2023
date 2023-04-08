@@ -33,7 +33,7 @@ int main(){
   struct Queue* queue = createQueue();
 
   // Create threads
-  if (pthread_create(&console_reader_thread, NULL, console_reader, NULL) != 0) {
+  if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue) != 0) {
       perror("Cannot create console thread: ");
       exit(1);
   }
@@ -43,7 +43,7 @@ int main(){
       exit(1);
   }
 
-  if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,NULL) != 0) {
+  if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue) != 0) {
       perror("Cannot create sensor thread: ");
       exit(1);
   }
@@ -102,9 +102,71 @@ void create_msq(){
   }
 }
 
-void *sensor_reader(void *arg){return NULL;};
+void *sensor_reader(void *arg){
 
-void *console_reader(void *arg){return NULL;};
+  // Opens the pipe for reading
+  int fd;
+  if ((fd = open(PIPENAME_1, O_RDONLY)) < 0) {
+    perror("Cannot open pipe for reading: ");
+    exit(0);
+  }
+
+  // Do some work
+  char buffer[MESSAGE_SIZE];
+  struct Queue* queue = (struct Queue*) arg;
+
+  while (1) {
+      // Lê a mensagem do named pipe
+      ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
+
+      if (bytes_read > 0) {
+          // Tenta inserir a mensagem na fila interna
+          if (queue_size(queue) < config->queue_slot_number)
+            enqueue(queue,buffer);
+          else
+            printf("Internal queue is full! Discarding message!");
+      } 
+      else {
+          perror("read");
+          // TODO: escrever no arquivo de log
+          break;
+      }
+  }
+  return NULL;
+};
+
+void *console_reader(void *arg){
+  
+  // Opens the pipe for reading
+  int fd;
+  if ((fd = open(PIPENAME_2, O_RDONLY)) < 0) {
+    perror("Cannot open pipe for reading: ");
+    exit(0);
+  }
+
+  // Do some work
+  char buffer[MESSAGE_SIZE];
+  struct Queue* queue = (struct Queue*) arg;
+
+  while (1) {
+      // Lê a mensagem do named pipe
+      ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
+
+      if (bytes_read > 0) {
+          // Tenta inserir a mensagem na fila interna
+          if (queue_size(queue) < config->queue_slot_number)
+            enqueue(queue,buffer);
+          else
+            printf("Internal queue is full! Discarding message!");
+      } 
+      else {
+          perror("read");
+          // TODO: escrever no arquivo de log
+          break;
+      }
+  }
+  return NULL;
+};
 
 void *dispatcher_reader(void *arg){
 

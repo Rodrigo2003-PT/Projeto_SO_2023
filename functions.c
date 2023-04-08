@@ -177,3 +177,13 @@ char* dequeue(struct Queue* queue) {
     }
     return command;
 }
+
+int queue_size(struct Queue* queue) {
+    int count = 0;
+    struct Node* current = queue->front;
+    while (current != NULL) {
+        count++;
+        current = current->next;
+    }
+    return count;
+}
