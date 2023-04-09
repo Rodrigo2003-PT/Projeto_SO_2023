@@ -7,6 +7,9 @@
 #include "functions.h"
 #include "worker.h"
 
+pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
+
 void create_named_pipe(char *name);
 void *dispatcher_reader(void *arg);
 void *console_reader(void *arg);

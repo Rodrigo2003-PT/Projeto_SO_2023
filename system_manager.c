@@ -131,11 +131,16 @@ void *sensor_reader(void *arg){
 
       // Lê a mensagem do named pipe
       ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
+      printf("The number of bytes read is: %zd\n", bytes_read);
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
           if (queue_size(queue) < config->queue_slot_number){
+            pthread_mutex_lock(&queue_mutex);
             enqueue(queue,buffer);
+            printQueue(queue);
+            pthread_cond_signal(&queue_cond);
+            pthread_mutex_unlock(&queue_mutex);
           }
 
           else{
@@ -147,6 +152,8 @@ void *sensor_reader(void *arg){
           // TODO: escrever no arquivo de log
           break;
       }
+      
+      sleep(4); // má prática só para remendar vai ser corrigido
   }
   return NULL;
 };
@@ -174,8 +181,12 @@ void *console_reader(void *arg){
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
-          if (queue_size(queue) < config->queue_slot_number)
-              enqueue(queue,buffer);
+          if (queue_size(queue) < config->queue_slot_number){
+            pthread_mutex_lock(&queue_mutex);
+            enqueue(queue,buffer);
+            pthread_cond_signal(&queue_cond);
+            pthread_mutex_unlock(&queue_mutex);
+          }
 
           else
             printf("Internal queue is full! Discarding message!");
@@ -196,12 +207,14 @@ void *dispatcher_reader(void *arg){
   while (1) {
 
     // Check if there are messages in the queue
-    char *msg = dequeue(queue);
-
-    if (msg == NULL) {
-      usleep(100000); // sleep for 100ms
-      continue;
+    pthread_mutex_lock(&queue_mutex);
+    while (isEmpty(queue)) {
+      pthread_cond_wait(&queue_cond, &queue_mutex);
     }
+
+    char *msg = dequeue(queue);
+    if (msg != NULL) printf("Message: %s\n", msg);
+    pthread_mutex_unlock(&queue_mutex);
 
     // Find a free worker
 
@@ -210,8 +223,6 @@ void *dispatcher_reader(void *arg){
     // Send the message to the worker
 
     // Make worker busy
-
-    free(msg); // free memory allocated by queue_pop
   }
   
   return NULL;

@@ -111,6 +111,8 @@ void send_message(char* id, char* key, int value) {
         exit(1);
     }
 
+    printf("The message is: %s", message);
+
     close(fd);
 
     msg_sent++;
