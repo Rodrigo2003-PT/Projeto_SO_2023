@@ -37,26 +37,27 @@ int main(){
       perror("Cannot create console thread: ");
       exit(1);
   }
-
-  pthread_join(console_reader_thread, NULL);
   
   if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) queue) != 0) {
     perror("Cannot create console thread: ");
     exit(1);
   }
 
-  pthread_join(dispatcher_thread, NULL);
-
   if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue) != 0) {
       perror("Cannot create sensor thread: ");
       exit(1);
   }
-
+  
+  pthread_join(console_reader_thread, NULL);
+  pthread_join(dispatcher_thread, NULL);
   pthread_join(sensor_reader_thread, NULL);
 
   for(int i = 0; i < config->num_workers; i++){
     worker_process = fork();
-    if(worker_process == 0) worker_init(read_from_pipe());
+    if(worker_process == 0){
+      worker_init(read_from_pipe());
+      exit(0);
+    }
   }
 
   alerts_watcher_process = fork();
@@ -110,6 +111,7 @@ void create_msq(){
   }
 }
 
+// This thread needs to be synchronized
 void *sensor_reader(void *arg){
 
   // Opens the pipe for reading
@@ -124,15 +126,21 @@ void *sensor_reader(void *arg){
   struct Queue* queue = (struct Queue*) arg;
 
   while (1) {
+
+      memset(buffer, 0, MESSAGE_SIZE);
+
       // Lê a mensagem do named pipe
       ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
-          if (queue_size(queue) < config->queue_slot_number)
+          if (queue_size(queue) < config->queue_slot_number){
             enqueue(queue,buffer);
-          else
+          }
+
+          else{
             printf("Internal queue is full! Discarding message!");
+          }
       } 
       else {
           perror("read");
@@ -143,6 +151,7 @@ void *sensor_reader(void *arg){
   return NULL;
 };
 
+// This thread needs to be synchronized
 void *console_reader(void *arg){
   
   // Opens the pipe for reading
@@ -157,13 +166,17 @@ void *console_reader(void *arg){
   struct Queue* queue = (struct Queue*) arg;
 
   while (1) {
+
+     memset(buffer, 0, MESSAGE_SIZE);
+
       // Lê a mensagem do named pipe
       ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
           if (queue_size(queue) < config->queue_slot_number)
-            enqueue(queue,buffer);
+              enqueue(queue,buffer);
+
           else
             printf("Internal queue is full! Discarding message!");
       } 

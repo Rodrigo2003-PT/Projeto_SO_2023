@@ -99,14 +99,12 @@ void send_message(char* id, char* key, int value) {
 
     sprintf(message, "%s#%s#%d\n", id, key, value);
 
-    printf("%s",message);
-
     if ((fd = open(PIPENAME_1, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writing: ");
             exit(0);
     }
 
-    // Perguntar ao stor porque é que há um freeze aqui!
+    // Program frozes here because the open call blocks until another process or thread opens the same named pipe for reading.
 
     if (write(fd, message, strlen(message)) == -1) {
         perror("write");

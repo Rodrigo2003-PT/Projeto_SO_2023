@@ -154,7 +154,8 @@ int isEmpty(struct Queue* queue) {
 
 // Function to add an element to the rear of the queue
 void enqueue(struct Queue* queue, char *command) {
-    struct Node* newNode = createNode(command);
+    char *command_copy = strdup(command); 
+    struct Node* newNode = createNode(command_copy);
     if (isEmpty(queue)) {
         queue->front = queue->rear = newNode;
         return;
@@ -165,12 +166,12 @@ void enqueue(struct Queue* queue, char *command) {
 
 char* dequeue(struct Queue* queue) {
     if (isEmpty(queue)) {
-        printf("Queue is empty\n");
         return NULL;
     }
     struct Node* temp = queue->front;
     char  *command = temp->command;
     queue->front = temp->next;
+    free(temp->command);
     free(temp);
     if (queue->front == NULL) {
         queue->rear = NULL;
@@ -186,4 +187,17 @@ int queue_size(struct Queue* queue) {
         current = current->next;
     }
     return count;
+}
+
+void printQueue(struct Queue* queue) {
+    if (isEmpty(queue)) {
+        printf("Queue is empty.\n");
+        return;
+    }
+    struct Node* current = queue->front;
+    printf("Queue contents:\n");
+    while (current != NULL) {
+        printf("%s\n", current->command);
+        current = current->next;
+    }
 }
