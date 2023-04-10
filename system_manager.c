@@ -1,4 +1,17 @@
+//Rodrigo Sá 2021213188
+//Miguel Miranda 2021212100
+
+//TO-DO
+//Sincronizar sensor_thread
+//Sincronizar user_console_thread
+//Finish dispatcher
+//Implement read_from_pipe -> worker reading from unnamed_pipe
+//Clean resources
+
 #include "system_manager.h"
+
+int fd_1;
+int fd_2;
 
 int main(){
 
@@ -31,6 +44,8 @@ int main(){
   create_msq();
   
   struct Queue* queue = createQueue();
+
+  signal(SIGINT, cleanup);
 
   // Create threads
   if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue) != 0) {
@@ -84,8 +99,6 @@ void init_program(){
   //Define first of each type for easy consulting
   first_worker = (int*) &sensor[config->max_sensors];
   count_key = *(first_worker + config->num_workers);
-  
-  // clean_data();
 }
 
 //Log management
@@ -111,12 +124,47 @@ void create_msq(){
   }
 }
 
+void cleanup(int sig) {
+
+  print("System terminating\n");
+
+  //Detach shared memory
+  if (shmdt(sensor) == -1) {
+    perror("Error detaching shared memory segment");
+  }
+
+  //Delete message queue
+  if (msgctl(msq_id, IPC_RMID, NULL) == -1) {
+    perror("Error deleting message queue");
+  }
+
+  //Close and unlink named pipes
+  if (close(fd_1) == -1) {
+    perror("Error closing pipe fd1");
+  }
+  if (unlink(PIPENAME_1) == -1) {
+    perror("Error unlinking pipe PIPENAME_1");
+  }
+  if (close(fd_2) == -1) {
+    perror("Error closing pipe fd2");
+  }
+  if (unlink(PIPENAME_2) == -1) {
+    perror("Error unlinking pipe PIPENAME_2");
+  }
+
+  //Close log file and destroy semaphore
+  fclose(log_file);
+  sem_close(log_semaphore);
+  sem_unlink(LOG_SEM_NAME);
+
+  exit(0);
+}
+
 // This thread needs to be synchronized
 void *sensor_reader(void *arg){
 
   // Opens the pipe for reading
-  int fd;
-  if ((fd = open(PIPENAME_1, O_RDONLY)) < 0) {
+  if ((fd_1 = open(PIPENAME_1, O_RDONLY)) < 0) {
     perror("Cannot open pipe for reading: ");
     exit(0);
   }
@@ -130,7 +178,7 @@ void *sensor_reader(void *arg){
       memset(buffer, 0, MESSAGE_SIZE);
 
       // Lê a mensagem do named pipe
-      ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
+      ssize_t bytes_read = read(fd_1, buffer, MESSAGE_SIZE);
       printf("The number of bytes read is: %zd\n", bytes_read);
 
       if (bytes_read > 0) {
@@ -138,7 +186,6 @@ void *sensor_reader(void *arg){
           if (queue_size(queue) < config->queue_slot_number){
             pthread_mutex_lock(&queue_mutex);
             enqueue(queue,buffer);
-            printQueue(queue);
             pthread_cond_signal(&queue_cond);
             pthread_mutex_unlock(&queue_mutex);
           }
@@ -152,8 +199,6 @@ void *sensor_reader(void *arg){
           // TODO: escrever no arquivo de log
           break;
       }
-      
-      sleep(4); // má prática só para remendar vai ser corrigido
   }
   return NULL;
 };
@@ -162,8 +207,7 @@ void *sensor_reader(void *arg){
 void *console_reader(void *arg){
   
   // Opens the pipe for reading
-  int fd;
-  if ((fd = open(PIPENAME_2, O_RDONLY)) < 0) {
+  if ((fd_2 = open(PIPENAME_2, O_RDONLY)) < 0) {
     perror("Cannot open pipe for reading: ");
     exit(0);
   }
@@ -177,7 +221,7 @@ void *console_reader(void *arg){
      memset(buffer, 0, MESSAGE_SIZE);
 
       // Lê a mensagem do named pipe
-      ssize_t bytes_read = read(fd, buffer, MESSAGE_SIZE);
+      ssize_t bytes_read = read(fd_2, buffer, MESSAGE_SIZE);
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
@@ -213,7 +257,7 @@ void *dispatcher_reader(void *arg){
     }
 
     char *msg = dequeue(queue);
-    if (msg != NULL) printf("Message: %s\n", msg);
+    if (msg != NULL) printf("Message: %s", msg);
     pthread_mutex_unlock(&queue_mutex);
 
     // Find a free worker

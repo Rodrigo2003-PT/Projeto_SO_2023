@@ -1,3 +1,9 @@
+//Rodrigo Sá 2021213188
+//Miguel Miranda 2021212100
+
+//TO-DO
+//Sincronizar sensor_thread
+
 #include "sensor_process.h"
 
 int msg_sent = 0;
@@ -87,7 +93,6 @@ void handle_sigtstp(int sig) {
 
 void handle_sigint(int sig) {
     printf("Sensor process terminated\n");
-    unlink(PIPENAME_1);
     exit(0);
 }
 
@@ -111,7 +116,7 @@ void send_message(char* id, char* key, int value) {
         exit(1);
     }
 
-    printf("The message is: %s", message);
+    printf("%s", message);
 
     close(fd);
 

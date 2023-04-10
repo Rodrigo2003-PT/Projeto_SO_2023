@@ -1,3 +1,6 @@
+//Rodrigo Sá 2021213188
+//Miguel Miranda 2021212100
+
 #ifndef alerts_watcher   /* Include guard */
 #define alerts_watcher
 

@@ -1,3 +1,9 @@
+//Rodrigo Sá 2021213188
+//Miguel Miranda 2021212100
+
+//TO-DO
+//Implementar a receive_function que recebe info da message_queue
+
 #include "user_console.h"
 
 int main(int argc, char **argv){
@@ -37,7 +43,6 @@ void process_command(char *command) {
     char *token = strtok(command, " ");
 
     if (strcmp(token, "exit") == 0) {
-        unlink(PIPENAME_2);
         pthread_cancel(console_thread);
         pthread_cancel(console_receive);
         exit(0);
@@ -131,7 +136,6 @@ void *receive_function(void *arg){return NULL;}
 
 void sigint_handler(int sig) {
     printf("Console  process interrupted\n");
-    unlink(PIPENAME_2);
     pthread_cancel(console_thread);
     pthread_cancel(console_receive);
     exit(0);

@@ -1,3 +1,9 @@
+//Rodrigo Sá 2021213188
+//Miguel Miranda 2021212100
+
+//TO-DO
+//Process messages from user_console
+
 #include "worker.h"
 
 void worker_init(char *msg){
