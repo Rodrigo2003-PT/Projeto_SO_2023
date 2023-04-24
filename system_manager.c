@@ -180,6 +180,7 @@ void *sensor_reader(void *arg){
       // Lê a mensagem do named pipe
       ssize_t bytes_read = read(fd_1, buffer, MESSAGE_SIZE);
       printf("The number of bytes read is: %zd\n", bytes_read);
+      printf("MSG recebida sensor_reader: %s",buffer);
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
@@ -197,7 +198,7 @@ void *sensor_reader(void *arg){
       else {
           perror("read");
           // TODO: escrever no arquivo de log
-          break;
+          // break;
       }
   }
   return NULL;
@@ -238,7 +239,6 @@ void *console_reader(void *arg){
       else {
           perror("read");
           // TODO: escrever no arquivo de log
-          break;
       }
   }
   return NULL;
@@ -256,8 +256,10 @@ void *dispatcher_reader(void *arg){
       pthread_cond_wait(&queue_cond, &queue_mutex);
     }
 
+    printQueue(queue);
+
     char *msg = dequeue(queue);
-    if (msg != NULL) printf("Message: %s", msg);
+    if (msg != NULL) printf("Message rcv by dispatcher: %s", msg);
     pthread_mutex_unlock(&queue_mutex);
 
     // Find a free worker

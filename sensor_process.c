@@ -7,6 +7,7 @@
 #include "sensor_process.h"
 
 int msg_sent = 0;
+int fd;
 
 int main(int argc, char *argv[]){
 
@@ -93,13 +94,13 @@ void handle_sigtstp(int sig) {
 
 void handle_sigint(int sig) {
     printf("Sensor process terminated\n");
+    close(fd);
     exit(0);
 }
 
 // function to send a message through the named pipe
 void send_message(char* id, char* key, int value) {
 
-    int fd;
     char message[MESSAGE_SIZE];
 
     sprintf(message, "%s#%s#%d\n", id, key, value);
@@ -117,8 +118,6 @@ void send_message(char* id, char* key, int value) {
     }
 
     printf("%s", message);
-
-    close(fd);
 
     msg_sent++;
 }

@@ -6,6 +6,8 @@
 
 #include "user_console.h"
 
+int pipe_fd;
+
 int main(int argc, char **argv){
 
      if (argc != 2) {
@@ -105,8 +107,6 @@ void process_command(char *command) {
 
 void send_command(char *command) {
 
-    int pipe_fd;
-
     if ((pipe_fd = open(PIPENAME_2, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writing: ");
             exit(0);
@@ -116,8 +116,6 @@ void send_command(char *command) {
         perror("write");
         exit(1);
     }
-
-    close(pipe_fd);
 }
 
 void *console_function(void *arg){
@@ -136,6 +134,7 @@ void *receive_function(void *arg){return NULL;}
 
 void sigint_handler(int sig) {
     printf("Console  process interrupted\n");
+    close(pipe_fd);
     pthread_cancel(console_thread);
     pthread_cancel(console_receive);
     exit(0);
