@@ -172,7 +172,8 @@ char* dequeue(struct Queue* queue) {
         return NULL;
     }
     struct Node* temp = queue->front;
-    char  *command = temp->command;
+    char* command = (char*) malloc(strlen(temp->command) + 1);
+    strcpy(command, temp->command);
     queue->front = temp->next;
     free(temp->command);
     free(temp);
@@ -181,6 +182,7 @@ char* dequeue(struct Queue* queue) {
     }
     return command;
 }
+
 
 int queue_size(struct Queue* queue) {
     int count = 0;

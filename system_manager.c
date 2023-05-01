@@ -256,8 +256,6 @@ void *dispatcher_reader(void *arg){
       pthread_cond_wait(&queue_cond, &queue_mutex);
     }
 
-    printQueue(queue);
-
     char *msg = dequeue(queue);
     if (msg != NULL) printf("Message rcv by dispatcher: %s", msg);
     pthread_mutex_unlock(&queue_mutex);
