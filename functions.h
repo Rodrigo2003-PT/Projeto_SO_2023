@@ -14,9 +14,9 @@
 #define LOG_SEM_NAME "log_semaphore"
 
 //Config file gesture
-char *read_from_pipe();
 int *read_config_file();
 void print_config_file();
+char *read_from_pipe(int pipe_fd);
 void process_config_file(int *configs);
 
 //Queue

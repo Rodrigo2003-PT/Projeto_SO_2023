@@ -13,7 +13,7 @@ typedef struct worker_sensor {
     int value;
 }worker_sensor;
 
-void worker_init(char *msg);
+void worker_init(int* pipe_fd);
 
 worker_sensor create_worker_sensor(char* msg);
 

@@ -133,7 +133,20 @@ void print(char *result){
     sem_post(log_semaphore);
 }
 
-char *read_from_pipe(){return NULL;}
+char *read_from_pipe(int pipe_fd){
+
+    char buffer[1024];
+    ssize_t bytes_read = read(pipe_fd, buffer, sizeof(buffer));
+
+    if (bytes_read == -1) {
+        return NULL;
+    } else {
+        char* data = malloc(bytes_read + 1);
+        memcpy(data, buffer, bytes_read);
+        data[bytes_read] = '\0';
+        return data;
+    }
+}
 
 // Function to create a new node
 struct Node* createNode(char *command) {

@@ -58,21 +58,28 @@ int main(int argc, char *argv[]){
 
     // Set up sensor data
     sensor_struct sensor = {
-    .data = {
-        {
+        .data = {
             .chave = key,
             .last_value = 0,
             .min_value = min,
             .max_value = max,
             .count = 0,
             .avg = 0
-        }
-    },
+        },
 
-    .intervalo = interval,
-    .id = sensor_id,
-    .alerts = {}
-};
+        .intervalo = interval,
+        .id = sensor_id,
+        .alerts = {{0}}
+    };
+
+    for (int i = 0; i < sizeof(sensor.alerts)/sizeof(sensor.alerts[0]); i++) {
+        sensor.alerts[i] = (sensor_alerts) { 
+            .alert_min = 0,
+            .alert_max = 0,
+            .alert_flag = 0,
+            .alert_id = NULL
+        };
+    }
     
     start_time = time(NULL);
 
@@ -80,7 +87,7 @@ int main(int argc, char *argv[]){
         current_time = time(NULL);
         if (current_time - start_time >= interval) {
             value = min + rand() % (max - min + 1);
-            send_message(sensor.id, sensor.data->chave, value);
+            send_message(sensor.id, sensor.data.chave, value);
             start_time = current_time;
         }
     }

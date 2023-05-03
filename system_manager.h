@@ -10,6 +10,9 @@
 #include "functions.h"
 #include "worker.h"
 
+#define WORKER_SEM_NAME "worker_semaphore"
+#define ARRAY_SEM_NAME "array_semaphore"
+
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 

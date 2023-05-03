@@ -56,14 +56,20 @@ typedef struct sensor_alerts{
     int alert_min;
     int alert_max;
     int alert_flag;
+    char* alert_id;
 }sensor_alerts;
 
 typedef struct sensor_struct {
     char* id;
-    sensor_alerts alerts[3];
-    sensor_chave data[6];
+    sensor_alerts alerts[4];
+    sensor_chave data;
     int intervalo;
 }sensor_struct;
+
+typedef struct alert_msg {
+    char* sensor_id;
+    int triggered_value;
+} alert_msg;
 
 typedef struct Node {
     char *command;
@@ -83,6 +89,8 @@ pid_t main_pid;
 
 //Shared memory id
 int shm_id;
+sem_t *array_sem;
+sem_t *worker_sem; 
 
 //Message Queue ID
 int msq_id;
@@ -98,7 +106,7 @@ int count_key;
 
 //Processes PIDS
 pid_t alerts_watcher_process;
-pid_t worker_process;
+pid_t* worker_pid;
 
 //Threads
 pthread_t console_reader_thread, sensor_reader_thread, dispatcher_thread, console_thread, console_receive;

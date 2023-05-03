@@ -2,8 +2,6 @@
 //Miguel Miranda 2021212100
 
 //TO-DO
-//Sincronizar sensor_thread
-//Sincronizar user_console_thread
 //Finish dispatcher
 //Implement read_from_pipe -> worker reading from unnamed_pipe
 //Clean resources
@@ -12,6 +10,7 @@
 
 int fd_1;
 int fd_2;
+int (**unnamed_pipe) = NULL;
 
 int main(){
 
@@ -45,7 +44,38 @@ int main(){
   
   struct Queue* queue = createQueue();
 
+    //create unnamed_pipe for each worker
+  unnamed_pipe = malloc(config->num_workers * sizeof(int*));
+  if (unnamed_pipe == NULL) {
+    perror("Error allocating memory for pipe array");
+    exit(1);
+  }
+  for (int i = 0; i < config->num_workers; i++) {
+    unnamed_pipe[i] = malloc(2 * sizeof(int));
+    if (unnamed_pipe[i] == NULL) {
+      perror("Error allocating memory for pipe");
+      exit(1);
+    }
+    if (pipe(unnamed_pipe[i]) == -1){
+      perror("Error creating unnamed pipe");
+      exit(1);
+    }
+  }
+
   signal(SIGINT, cleanup);
+
+  alerts_watcher_process = fork();
+  if(alerts_watcher_process == 0) alerts_watcher_init();
+
+  worker_pid = (pid_t*) malloc(config->num_workers * sizeof(pid_t));
+
+  for(int i = 0; i < config->num_workers; i++){
+    worker_pid[i] = fork();
+    if(worker_pid[i] == 0){
+      worker_init(unnamed_pipe[i]);
+      exit(0);
+    }
+  }
 
   // Create threads
   if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue) != 0) {
@@ -62,23 +92,14 @@ int main(){
       perror("Cannot create sensor thread: ");
       exit(1);
   }
+
+  signal(SIGINT, cleanup);
   
   pthread_join(console_reader_thread, NULL);
   pthread_join(dispatcher_thread, NULL);
   pthread_join(sensor_reader_thread, NULL);
 
-  for(int i = 0; i < config->num_workers; i++){
-    worker_process = fork();
-    if(worker_process == 0){
-      worker_init(read_from_pipe());
-      exit(0);
-    }
-  }
-
-  alerts_watcher_process = fork();
-  if(alerts_watcher_process == 0) alerts_watcher_init();
-
-  for(int i = 0; i < 2; i++)wait(NULL);
+  for(int i = 0; i < config->num_workers + 1; i++)wait(NULL);
 }
 
 void init_program(){
@@ -99,6 +120,25 @@ void init_program(){
   //Define first of each type for easy consulting
   first_worker = (int*) &sensor[config->max_sensors];
   count_key = *(first_worker + config->num_workers);
+
+  // Initialize all workers to 1
+  for (int i = 0; i < config->num_workers; i++) {
+    *(first_worker + i) = 1;
+  }
+
+  sem_unlink(ARRAY_SEM_NAME);
+  array_sem = sem_open(ARRAY_SEM_NAME, O_CREAT | O_EXCL, 0666, 1);
+  if (array_sem == SEM_FAILED) {
+      perror("sem_open");
+      exit(1);
+  }
+
+  sem_unlink(WORKER_SEM_NAME);
+  worker_sem = sem_open(WORKER_SEM_NAME, O_CREAT | O_EXCL, 0666, 0);
+  if (worker_sem == SEM_FAILED) {
+      perror("sem_open");
+      exit(1);
+  }
 }
 
 //Log management
@@ -128,6 +168,13 @@ void cleanup(int sig) {
 
   print("System terminating\n");
 
+  // Send SIGTERM signal to worker processes
+  for (int i = 0; i < config->num_workers; i++) {
+    kill(worker_pid[i], SIGKILL);
+  }
+
+  while (wait(NULL) != -1);
+
   //Detach shared memory
   if (shmdt(sensor) == -1) {
     perror("Error detaching shared memory segment");
@@ -152,10 +199,20 @@ void cleanup(int sig) {
     perror("Error unlinking pipe PIPENAME_2");
   }
 
+  for (int i = 0; i < config->num_workers; i++){
+    free(unnamed_pipe[i]);
+  }
+
+  free(unnamed_pipe);
+
   //Close log file and destroy semaphore
   fclose(log_file);
   sem_close(log_semaphore);
   sem_unlink(LOG_SEM_NAME);
+  sem_close(array_sem);
+  sem_unlink(ARRAY_SEM_NAME);
+  sem_close(worker_sem);
+  sem_unlink(WORKER_SEM_NAME);
 
   exit(0);
 }
@@ -260,13 +317,42 @@ void *dispatcher_reader(void *arg){
     if (msg != NULL) printf("Message rcv by dispatcher: %s", msg);
     pthread_mutex_unlock(&queue_mutex);
 
-    // Find a free worker
 
-    // No free workers, wait for one to become available
+    // Find a free worker
+    int free_worker = -1;
+
+    sem_wait(array_sem);
+      for (int i = 0; i < config->num_workers; i++) {
+        int worker_state = *(first_worker + i);
+        if (worker_state == 1) {
+          free_worker = i;
+          worker_state = 0;
+          sem_post(array_sem);
+          break;
+        }
+      }
+
+    // Wait for one to become available
+    if (free_worker == -1){
+      sem_wait(worker_sem);
+      sem_wait(array_sem);
+      for (int i = 0; i < config->num_workers; i++) {
+        int worker_state = *(first_worker + i);
+        if (worker_state == 1) {
+          free_worker = i;
+          worker_state = 0;
+          sem_post(array_sem);
+          break;
+        }
+      }
+    }
 
     // Send the message to the worker
-
-    // Make worker busy
+    int bytes_written = write(unnamed_pipe[free_worker][1], msg, strlen(msg));
+    if (bytes_written < 0) {
+      perror("Error writing to pipe");
+      exit(1);
+    }
   }
   
   return NULL;
