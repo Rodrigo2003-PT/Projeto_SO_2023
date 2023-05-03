@@ -9,6 +9,8 @@
 
 #define MAX_MSG_SIZE 256
 
+pid_t console_pid;
+
 void start_user_console();
 void sigint_handler(int sig);
 void send_command(char *command);

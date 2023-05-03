@@ -20,11 +20,13 @@ void worker_init(int* pipe_fd){
             if(strncmp(msg, "add_alert", strlen("add_alert")) == 0){
                 char *id = NULL, *key = NULL;
                 int min_val, max_val;
-                if (sscanf(msg, "add_alert %s %s %d %d", id, key, &min_val, &max_val) == 4){
+                pid_t console_pid;
+                if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 4){
                     for (int i = 0; i < config->max_sensors; i++) {
                         if (strcmp(sensor[i].data.chave, key) == 0) {
                             for (int j = 0; j < 4; j++){
                                  if (sensor[i].alerts[j].alert_id == NULL){
+                                    sensor[i].alerts[j].pid = console_pid;
                                     sensor[i].alerts[j].alert_id = id;
                                     sensor[i].alerts[j].alert_flag = 1;
                                     sensor[i].alerts[j].alert_min = min_val;
@@ -43,6 +45,9 @@ void worker_init(int* pipe_fd){
                      for (int i = 0; i < config->max_sensors; i++) {
                         for (int j = 0; j < 4; j++){
                             if (strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
+                                sensor[i].alerts[j].pid = -1;
+                                sensor[i].alerts[j].alert_min = 0;
+                                sensor[i].alerts[j].alert_max = 0;
                                 sensor[i].alerts[j].alert_flag = 0;
                                 sensor[i].alerts[j].alert_id = NULL;
                                 break;

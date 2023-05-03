@@ -15,6 +15,8 @@ int main(int argc, char **argv){
         exit(0);
     }
 
+    console_pid = getpid();
+
     signal(SIGINT, sigint_handler);
 
     start_user_console();
@@ -74,7 +76,7 @@ void process_command(char *command) {
 
         else {
             char buf[MAX_MSG_SIZE];
-            sprintf(buf, "add_alert %s %s %d %d\n", id, key, min_val, max_val);
+            sprintf(buf, "add_alert %d %s %s %d %d\n",console_pid, id, key, min_val, max_val);
             send_command(buf);
         }
     } 
@@ -130,7 +132,23 @@ void *console_function(void *arg){
     }
 }
 
-void *receive_function(void *arg){return NULL;}
+void *receive_function(void *arg){
+    alert_msg msg;
+
+    while(1) {
+        if (msgrcv(msq_id, &msg, sizeof(alert_msg), console_pid, IPC_NOWAIT) == -1) {
+            // handle the case where no messages are available for reading
+            if (errno != ENOMSG) {
+                perror("msgrcv failed");
+            }
+        } 
+        else {
+            printf("Alert received for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
+            // handle the received alert message as needed
+        }
+    }
+    return NULL;
+}
 
 void sigint_handler(int sig) {
     printf("Console  process interrupted\n");

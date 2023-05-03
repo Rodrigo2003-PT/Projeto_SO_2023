@@ -9,7 +9,7 @@ void alerts_watcher_init(){
             for (int j = 0; j < 4; j++) {
                 if (sensor[i].alerts[j].alert_flag == 1) {
                     if (sensor[i].data.last_value < sensor[i].alerts[j].alert_min || sensor[i].data.last_value > sensor[i].alerts[j].alert_max) {
-                        int msg_type = i + SENSOR_MSG_TYPE_OFFSET;
+                        int msg_type = sensor[i].alerts[j].pid;
                         alert_msg msg;
                         msg.sensor_id = sensor[i].id;
                         msg.triggered_value = sensor[i].data.last_value;

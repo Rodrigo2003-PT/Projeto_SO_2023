@@ -73,7 +73,8 @@ int main(int argc, char *argv[]){
     };
 
     for (int i = 0; i < sizeof(sensor.alerts)/sizeof(sensor.alerts[0]); i++) {
-        sensor.alerts[i] = (sensor_alerts) { 
+        sensor.alerts[i] = (sensor_alerts) {
+            .pid = -1, 
             .alert_min = 0,
             .alert_max = 0,
             .alert_flag = 0,

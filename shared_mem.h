@@ -53,6 +53,7 @@ typedef struct sensor_chave{
 }sensor_chave;
 
 typedef struct sensor_alerts{
+    pid_t pid;
     int alert_min;
     int alert_max;
     int alert_flag;
