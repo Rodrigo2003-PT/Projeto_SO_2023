@@ -16,11 +16,19 @@
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
 
+struct DispatcherArgs {
+  int (*pipes)[2];
+  struct Queue* queue;
+};
+
+void create_unnamed_pipes(int pipes[][2]);
 void create_named_pipe(char *name);
 void *dispatcher_reader(void *arg);
 void *console_reader(void *arg);
 void *sensor_reader(void *arg);
+void wait_alerts_watcher();
 void cleanup(int sig);
+void wait_workers();
 void init_program();
 void create_msq();
 void init_log();

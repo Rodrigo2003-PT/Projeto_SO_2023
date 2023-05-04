@@ -10,7 +10,7 @@
 
 int fd_1;
 int fd_2;
-int (**unnamed_pipe) = NULL;
+int *configs = NULL;
 
 int main(){
 
@@ -26,41 +26,27 @@ int main(){
   msq_id = -1;
 
   //read config file
-  int *configs = NULL;
   configs = read_config_file();
-  if (configs == NULL) printf("Error reading file or invalid number of teams\ncheck if your file is config.txt or the number of teams (line 3) is bigger than 3!");
+  if (configs == NULL){
+    printf("Error reading config file");
+    print("Error reading config file");
+  } 
   process_config_file(configs);
-  free(configs);
 
   init_log();
 
   //generate shared memory and control mechanisms
   init_program();
 
+  int pipes[config->num_workers][2];
+  create_unnamed_pipes(pipes);
   create_named_pipe(PIPENAME_1);
   create_named_pipe(PIPENAME_2);
-
   create_msq();
-  
-  struct Queue* queue = createQueue();
 
-    //create unnamed_pipe for each worker
-  unnamed_pipe = malloc(config->num_workers * sizeof(int*));
-  if (unnamed_pipe == NULL) {
-    perror("Error allocating memory for pipe array");
-    exit(1);
-  }
-  for (int i = 0; i < config->num_workers; i++) {
-    unnamed_pipe[i] = malloc(2 * sizeof(int));
-    if (unnamed_pipe[i] == NULL) {
-      perror("Error allocating memory for pipe");
-      exit(1);
-    }
-    if (pipe(unnamed_pipe[i]) == -1){
-      perror("Error creating unnamed pipe");
-      exit(1);
-    }
-  }
+  struct Queue* queue = createQueue();
+  struct DispatcherArgs dispatcher_args = { .pipes = pipes, .queue = queue };
+
 
   signal(SIGINT, cleanup);
 
@@ -68,38 +54,37 @@ int main(){
   if(alerts_watcher_process == 0) alerts_watcher_init();
 
   worker_pid = (pid_t*) malloc(config->num_workers * sizeof(pid_t));
-
   for(int i = 0; i < config->num_workers; i++){
     worker_pid[i] = fork();
     if(worker_pid[i] == 0){
-      worker_init(unnamed_pipe[i]);
+      worker_init(pipes[i]);
       exit(0);
     }
   }
 
   // Create threads
   if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue) != 0) {
-      perror("Cannot create console thread: ");
-      exit(1);
+    perror("Cannot create console thread: ");
+    exit(1);
   }
   
-  if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) queue) != 0) {
+  if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) &dispatcher_args) != 0) {
     perror("Cannot create console thread: ");
     exit(1);
   }
 
   if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue) != 0) {
-      perror("Cannot create sensor thread: ");
-      exit(1);
+    perror("Cannot create sensor thread: ");
+    exit(1);
   }
-
-  signal(SIGINT, cleanup);
   
   pthread_join(console_reader_thread, NULL);
   pthread_join(dispatcher_thread, NULL);
   pthread_join(sensor_reader_thread, NULL);
 
-  for(int i = 0; i < config->num_workers + 1; i++)wait(NULL);
+  wait_workers();
+  wait_alerts_watcher();
+
 }
 
 void init_program(){
@@ -147,11 +132,47 @@ void init_log(){
   sem_unlink(LOG_SEM_NAME);
   log_file = fopen("log.txt", "w");
   log_semaphore = sem_open(LOG_SEM_NAME, O_CREAT | O_EXCL, 0777, 1);
+  if (log_semaphore == SEM_FAILED) {
+      perror("sem_open");
+      exit(1);
+  }
+}
+
+void wait_workers(){
+  for (int i = 0; i < config->num_workers; i++) {
+    int status;
+    if (waitpid(worker_pid[i], &status, 0) == -1) {
+        perror("waitpid");
+    }
+    printf("Worker process %d terminated with status %d\n", worker_pid[i], status);
+  }
+  free(worker_pid);
+  print("Worker processes terminated");
+}
+
+void wait_alerts_watcher(){
+  int status;
+  if (waitpid(alerts_watcher_process, &status, 0) == -1) {
+    perror("waitpid");
+  }
+  printf("Alerts watcher process %d terminated with status %d\n", alerts_watcher_process, status);
+  print("Alerts_Watcher process terminated");
+}
+
+void create_unnamed_pipes(int pipes[][2]){
+  for (int i = 0; i < config->num_workers; i++) {
+        if (pipe(pipes[i]) == -1) {
+          printf("CANNOT CREATE UNNAMED PIPE -> EXITING\n");
+          print("CANNOT CREATE UNNAMED PIPE -> EXITING\n");
+          exit(1);
+        }
+    }
 }
 
 void create_named_pipe(char *name){
   unlink(name);
   if ((mkfifo(name, O_CREAT|O_EXCL|0600)<0) && (errno != EEXIST)){
+    printf("CANNOT CREATE NAMED PIPE -> EXITING\n");
     print("CANNOT CREATE NAMED PIPE -> EXITING\n");
     exit(1);
   }
@@ -159,8 +180,9 @@ void create_named_pipe(char *name){
 
 void create_msq(){
   if((msq_id = msgget(IPC_PRIVATE, IPC_CREAT|0777)) == -1){
+    printf("Error creating message queue");
     print("Error creating message queue");
-    exit(0);
+    exit(1);
   }
 }
 
@@ -168,12 +190,12 @@ void cleanup(int sig) {
 
   print("System terminating\n");
 
-  // Send SIGTERM signal to worker processes
-  for (int i = 0; i < config->num_workers; i++) {
-    kill(worker_pid[i], SIGKILL);
-  }
+  // // Send SIGTERM signal to worker processes
+  // for (int i = 0; i < config->num_workers; i++) {
+  //   kill(worker_pid[i], SIGKILL);
+  // }
 
-  while (wait(NULL) != -1);
+  // while (wait(NULL) != -1);
 
   //Detach shared memory
   if (shmdt(sensor) == -1) {
@@ -199,12 +221,6 @@ void cleanup(int sig) {
     perror("Error unlinking pipe PIPENAME_2");
   }
 
-  for (int i = 0; i < config->num_workers; i++){
-    free(unnamed_pipe[i]);
-  }
-
-  free(unnamed_pipe);
-
   //Close log file and destroy semaphore
   fclose(log_file);
   sem_close(log_semaphore);
@@ -213,6 +229,8 @@ void cleanup(int sig) {
   sem_unlink(ARRAY_SEM_NAME);
   sem_close(worker_sem);
   sem_unlink(WORKER_SEM_NAME);
+
+  free(configs);
 
   exit(0);
 }
@@ -255,7 +273,6 @@ void *sensor_reader(void *arg){
       else {
           perror("read");
           // TODO: escrever no arquivo de log
-          // break;
       }
   }
   return NULL;
@@ -303,7 +320,9 @@ void *console_reader(void *arg){
 
 void *dispatcher_reader(void *arg){
 
-  struct Queue* queue = (struct Queue*) arg;
+  struct DispatcherArgs *args = (struct DispatcherArgs*) arg;
+  int (*pipes)[2] = args->pipes;
+  struct Queue* queue = args->queue;
 
   while (1) {
 
@@ -316,7 +335,6 @@ void *dispatcher_reader(void *arg){
     char *msg = dequeue(queue);
     if (msg != NULL) printf("Message rcv by dispatcher: %s", msg);
     pthread_mutex_unlock(&queue_mutex);
-
 
     // Find a free worker
     int free_worker = -1;
@@ -348,7 +366,7 @@ void *dispatcher_reader(void *arg){
     }
 
     // Send the message to the worker
-    int bytes_written = write(unnamed_pipe[free_worker][1], msg, strlen(msg));
+    int bytes_written = write(pipes[free_worker][1], msg, strlen(msg));
     if (bytes_written < 0) {
       perror("Error writing to pipe");
       exit(1);

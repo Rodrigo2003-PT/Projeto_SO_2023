@@ -33,11 +33,11 @@ int main(int argc, char *argv[]){
     int max = atoi(argv[6]);
 
     // Validate input parameters
-    if (strlen(sensor_id) < MIN_LENGTH || strlen(sensor_id) > MAX_LENGTH) {
+    if (strlen(sensor_id) < MIN_SENSOR_ID_SIZE || strlen(sensor_id) > MAX_SENSOR_ID_SIZE) {
         printf("Error: sensor id must be between 3 and 32 characters\n");
         exit(1);
     }
-    if (strlen(key) < MIN_LENGTH || strlen(key) > MAX_LENGTH) {
+    if (strlen(key) < MIN_KEY_SIZE || strlen(key) > MAX_KEY_SIZE) {
         printf("Error: key must be between 3 and 32 characters\n");
         exit(1);
     }
@@ -72,7 +72,7 @@ int main(int argc, char *argv[]){
         .alerts = {{0}}
     };
 
-    for (int i = 0; i < sizeof(sensor.alerts)/sizeof(sensor.alerts[0]); i++) {
+    for (int i = 0; i < ALERTS_PER_SENSOR; i++) {
         sensor.alerts[i] = (sensor_alerts) {
             .pid = -1, 
             .alert_min = 0,
@@ -117,8 +117,6 @@ void send_message(char* id, char* key, int value) {
             perror("Cannot open pipe for writing: ");
             exit(0);
     }
-
-    // Program frozes here because the open call blocks until another process or thread opens the same named pipe for reading.
 
     if (write(fd, message, strlen(message)) == -1) {
         perror("write");

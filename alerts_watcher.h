@@ -7,8 +7,6 @@
 #include "shared_mem.h"
 #include "functions.h"
 
-#define SENSOR_MSG_TYPE_OFFSET 1
-
 void alerts_watcher_init();
 
 #endif

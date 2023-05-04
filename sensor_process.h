@@ -7,9 +7,6 @@
 #include "shared_mem.h"
 #include "functions.h"
 
-#define MAX_LENGTH 32
-#define MIN_LENGTH 3
-
 pid_t sensor_pid;
 
 void handle_sigint(int signal);

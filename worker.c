@@ -12,7 +12,6 @@ void worker_init(int* pipe_fd){
         close(pipe_fd[1]);
         char *msg = read_from_pipe(pipe_fd[0]);
         printf("Worker message: %s", msg);
-
         char *result = strchr(msg, '#');
         
         // Se a mensagem for um dado da user_console
@@ -24,7 +23,7 @@ void worker_init(int* pipe_fd){
                 if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 4){
                     for (int i = 0; i < config->max_sensors; i++) {
                         if (strcmp(sensor[i].data.chave, key) == 0) {
-                            for (int j = 0; j < 4; j++){
+                            for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                                  if (sensor[i].alerts[j].alert_id == NULL){
                                     sensor[i].alerts[j].pid = console_pid;
                                     sensor[i].alerts[j].alert_id = id;
@@ -43,7 +42,7 @@ void worker_init(int* pipe_fd){
                 char *id = NULL;
                 if(sscanf(msg,"remove_alert %s",id) == 1){
                      for (int i = 0; i < config->max_sensors; i++) {
-                        for (int j = 0; j < 4; j++){
+                        for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                             if (strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
                                 sensor[i].alerts[j].pid = -1;
                                 sensor[i].alerts[j].alert_min = 0;
@@ -59,7 +58,7 @@ void worker_init(int* pipe_fd){
 
             if(strncmp(msg,"list_alerts",strlen("list_alerts")) == 0){
                 for (int i = 0; i < config->max_sensors; i++) {
-                    for (int j = 0; j < 4; j++){
+                    for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                         char* alert = sensor[i].alerts[j].alert_id;
                         if (alert != NULL) { 
                             printf("Alerta->%s",alert);
@@ -102,7 +101,7 @@ void worker_init(int* pipe_fd){
                     }
                 }
                 sem_post(array_sem);
-                sem_post(worker_sem); 
+                sem_post(worker_sem);
             }
             else
                 print("Limite de chaves em armazenamento no sistema excedido");   

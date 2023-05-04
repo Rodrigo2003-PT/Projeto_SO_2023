@@ -23,13 +23,11 @@
 
 #define MAX_SENSOR_ID_SIZE 32
 #define MIN_SENSOR_ID_SIZE 3
+#define ALERTS_PER_SENSOR 4
 #define MESSAGE_SIZE 1024
 #define MAX_KEY_SIZE 32
 #define MIN_KEY_SIZE 3
 
-#define MAX_ID_LENGTH 32
-#define MAX_COMMAND_LENGTH 256
-#define MAX_RESPONSE_LENGTH 200
 
 #define PIPENAME_1 "SENSOR_PIPE"
 
@@ -62,7 +60,7 @@ typedef struct sensor_alerts{
 
 typedef struct sensor_struct {
     char* id;
-    sensor_alerts alerts[4];
+    sensor_alerts alerts[ALERTS_PER_SENSOR];
     sensor_chave data;
     int intervalo;
 }sensor_struct;
@@ -85,16 +83,13 @@ typedef struct Queue {
 //Struct to save config files
 config_struct *config;
 
-//Main PID
-pid_t main_pid;
+//Message Queue ID
+int msq_id;
 
 //Shared memory id
 int shm_id;
 sem_t *array_sem;
 sem_t *worker_sem; 
-
-//Message Queue ID
-int msq_id;
 
 //Log file management
 FILE *log_file;
@@ -108,6 +103,7 @@ int count_key;
 //Processes PIDS
 pid_t alerts_watcher_process;
 pid_t* worker_pid;
+pid_t main_pid;
 
 //Threads
 pthread_t console_reader_thread, sensor_reader_thread, dispatcher_thread, console_thread, console_receive;
