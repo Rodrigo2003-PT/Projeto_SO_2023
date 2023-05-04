@@ -366,6 +366,7 @@ void *dispatcher_reader(void *arg){
     }
 
     // Send the message to the worker
+    close(pipes[free_worker][0]);
     int bytes_written = write(pipes[free_worker][1], msg, strlen(msg));
     if (bytes_written < 0) {
       perror("Error writing to pipe");

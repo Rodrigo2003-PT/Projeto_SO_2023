@@ -11,7 +11,7 @@ void worker_init(int* pipe_fd){
     while (1) {
         close(pipe_fd[1]);
         char *msg = read_from_pipe(pipe_fd[0]);
-        printf("Worker message: %s", msg);
+        printf("Worker message: %s\n", msg);
         char *result = strchr(msg, '#');
         
         // Se a mensagem for um dado da user_console
@@ -72,39 +72,69 @@ void worker_init(int* pipe_fd){
         else{
 
             worker_sensor ws = create_worker_sensor(msg);
+            int sensor_exists = 0;
 
-            if(count_key < config->max_keys){
-                // Search for the sensor structure with the given key
-                for(int i = 0; i < config->max_sensors; i++){
-                    if(strcmp(sensor[i].id, ws.id) == 0){
-                        // Found the sensor structure, now access its data fields
-                        sensor_chave data = sensor[i].data;
-                        if(strcmp(data.chave, ws.chave) == 0){
-                            //Primeira vez a receber dados do sensor no sistema.
-                            if(data.count == 0)count_key++;
-                            data.last_value = ws.value;
-                            data.avg = (data.last_value + data.min_value + data.max_value) / 3;
-                            if(ws.value < data.min_value)data.min_value = ws.value;
-                            if(ws.value > data.max_value)data.max_value = ws.value;
-                            data.count++;
-                        }
-                        break;
+            // Search for the sensor structure with the given key
+            for(int i = 0; i < config->max_sensors; i++){
+                if(sensor[i].id != NULL && strcmp(sensor[i].id, ws.id) == 0){
+                    // Found the sensor structure, now access its data fields
+                    sensor_chave data = sensor[i].data;
+                    if(strcmp(data.chave, ws.chave) == 0){
+                        //Primeira vez a receber dados do sensor no sistema.
+                        if(data.count == 0)count_key++;
+                        data.last_value = ws.value;
+                        data.avg = (data.last_value + data.min_value + data.max_value) / 3;
+                        if(ws.value < data.min_value)data.min_value = ws.value;
+                        if(ws.value > data.max_value)data.max_value = ws.value;
+                        data.count++;
                     }
+                    sensor_exists = 1;
+                    break;
                 }
-
-                sem_wait(array_sem);
-                for (int i = 0; i < config->num_workers; i++) {
-                    int worker_state = *(first_worker + i);
-                    if (worker_state == 0) {
-                        worker_state = 1;
-                        break;
-                    }
-                }
-                sem_post(array_sem);
-                sem_post(worker_sem);
             }
-            else
-                print("Limite de chaves em armazenamento no sistema excedido");   
+
+            if(!sensor_exists){
+                if(count_key < config->max_keys){
+                    int i = 0;
+                    for(i = 0; i < config->max_sensors; i++){
+                        if(sensor[i].id == NULL) break;
+                    }
+                    if (i == config->max_sensors) {
+                        printf("Error: maximum number of sensors reached\n");
+                    }
+        
+                    // Allocate memory for the new sensor structure
+                    sensor[i].id = strdup(ws.id);
+                    sensor[i].intervalo = 3;
+                    sensor_alerts* alerts = sensor[i].alerts;
+                    for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
+                        alerts[j].alert_flag = 0;
+                        alerts[j].pid = -1;
+                        alerts[j].alert_min = -1;
+                        alerts[j].alert_max = -1;
+                        alerts[j].alert_id = NULL;
+                    }
+                    sensor_chave* data = &(sensor[i].data);
+                    data->chave = strdup(ws.chave);
+                    data->last_value = ws.value;
+                    data->min_value = ws.value;
+                    data->max_value = ws.value;
+                    data->count = 1;
+                    data->avg = ws.value;
+                    count_key++;
+                }
+            }
+
+            sem_wait(array_sem);
+            for (int i = 0; i < config->num_workers; i++) {
+                int worker_state = *(first_worker + i);
+                if (worker_state == 0) {
+                    worker_state = 1;
+                    break;
+                }
+            }
+            sem_post(array_sem);
+            sem_post(worker_sem);  
         }
     }
 }

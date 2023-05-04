@@ -75,8 +75,8 @@ int main(int argc, char *argv[]){
     for (int i = 0; i < ALERTS_PER_SENSOR; i++) {
         sensor.alerts[i] = (sensor_alerts) {
             .pid = -1, 
-            .alert_min = 0,
-            .alert_max = 0,
+            .alert_min = -1,
+            .alert_max = -1,
             .alert_flag = 0,
             .alert_id = NULL
         };
