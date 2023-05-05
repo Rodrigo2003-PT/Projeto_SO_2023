@@ -141,7 +141,11 @@ void *console_function(void *arg){
 void *receive_function(void *arg){
     alert_msg msg;
     while(1) {
-        msgrcv(msq_id, &msg, sizeof(alert_msg), console_pid, 0);
+        if (msgrcv(msq_id, &msg, sizeof(alert_msg), console_pid, 0) == -1) {
+            if (errno == EINVAL) {
+                break;
+            }
+        }
         printf("Alert received for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
     }
     return NULL;
@@ -149,8 +153,7 @@ void *receive_function(void *arg){
 
 void sigint_handler(int sig) {
     printf("Console  process interrupted\n");
-    close(pipe_fd);
     pthread_cancel(console_thread);
-    pthread_cancel(console_receive);
+    close(pipe_fd);
     exit(0);
 }

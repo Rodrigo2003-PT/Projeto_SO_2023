@@ -17,13 +17,18 @@ void worker_init(int* pipe_fd){
         
         // Se a mensagem for um dado da user_console
         if(result == NULL){
+            printf("HERE_1\n");
             if(strncmp(msg, "add_alert", strlen("add_alert")) == 0){
-                char *id = NULL, *key = NULL;
+                printf("HERE_2\n");
+                char id[MAX_KEY_SIZE];
+                char key[MAX_KEY_SIZE];
                 int min_val, max_val;
                 pid_t console_pid;
-                if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 4){
+                if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 5){
+                    printf("HERE_3\n");
                     for (int i = 0; i < config->max_sensors; i++) {
                         if (sensor[i].id != NULL && strcmp(sensor[i].data.chave, key) == 0) {
+                            printf("HERE_4\n");
                             for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                                  if (sensor[i].alerts[j].alert_id == NULL){
                                     sensor[i].alerts[j].pid = console_pid;
@@ -36,6 +41,7 @@ void worker_init(int* pipe_fd){
                         sensor_exists = 1;
                         break;
                         }
+                        printf("HERE_5\n");
                     }
                     if(!sensor_exists)
                         printf("Cannot add_alert to a non existing_sensor");
