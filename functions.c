@@ -219,3 +219,14 @@ void printQueue(struct Queue* queue) {
         current = current->next;
     }
 }
+
+void destroyQueue(struct Queue* queue) {
+    struct Node* current = queue->front;
+    while (current != NULL) {
+        struct Node* next = current->next;
+        free(current->command);
+        free(current);
+        current = next;
+    }
+    free(queue);
+}

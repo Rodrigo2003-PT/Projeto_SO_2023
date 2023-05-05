@@ -4,10 +4,11 @@
 #include "alerts_watcher.h"
 
 void alerts_watcher_init(){
-      while(1) {
+      printf("Running: %d",running);
+      while(running) {
         for (int i = 0; i < config->max_sensors; i++) {
             for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
-                if (sensor[i].alerts[j].alert_flag == 1) {
+                if (sensor[i].id != NULL && sensor[i].alerts[j].alert_flag == 1) {
                     if (sensor[i].data.last_value < sensor[i].alerts[j].alert_min || sensor[i].data.last_value > sensor[i].alerts[j].alert_max) {
                         int msg_type = sensor[i].alerts[j].pid;
                         alert_msg msg;

@@ -44,6 +44,8 @@ void start_user_console() {
 
 void process_command(char *command) {
 
+    char *cmd_copy = strdup(command);
+
     char *token = strtok(command, " ");
 
     if (strcmp(token, "exit") == 0) {
@@ -66,13 +68,14 @@ void process_command(char *command) {
 
     else if (strcmp(token, "add_alert") == 0) {
 
-        char *id = NULL, *key = NULL;
+        char id[MAX_KEY_SIZE];
+        char key[MAX_KEY_SIZE];
         int min_val, max_val;
-        int num_scanned = sscanf(command, "add_alert %s %s %d %d", id, key, &min_val, &max_val);
+        int num_scanned = sscanf(cmd_copy, "add_alert %s %s %d %d", id, key, &min_val, &max_val);
 
         if (num_scanned < 4) {
             printf("Usage: add_alert [id] [key] [min] [max]\n");
-        } 
+        }
 
         else {
             char buf[MAX_MSG_SIZE];
@@ -83,8 +86,8 @@ void process_command(char *command) {
 
     else if (strcmp(token, "remove_alert") == 0) {
 
-        char *id = NULL;
-        int num_scanned = sscanf(command, "remove_alert %s", id);
+        char id[MAX_KEY_SIZE];
+        int num_scanned = sscanf(cmd_copy, "remove_alert %s", id);
 
         if (num_scanned < 1) {
             printf("Usage: remove_alert [id]\n");
@@ -105,13 +108,15 @@ void process_command(char *command) {
     else {
         printf("Invalid command.\n");
     }
+
+    free(cmd_copy);
 }
 
 void send_command(char *command) {
 
     if ((pipe_fd = open(PIPENAME_2, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writing: ");
-            exit(0);
+            exit(1);
         }
 
     if (write(pipe_fd, command, strlen(command)) == -1) {
@@ -130,22 +135,14 @@ void *console_function(void *arg){
         command[strcspn(command, "\n")] = '\0';
         process_command(command);
     }
+    return NULL;
 }
 
 void *receive_function(void *arg){
     alert_msg msg;
-
     while(1) {
-        if (msgrcv(msq_id, &msg, sizeof(alert_msg), console_pid, IPC_NOWAIT) == -1) {
-            // handle the case where no messages are available for reading
-            if (errno != ENOMSG) {
-                perror("msgrcv failed");
-            }
-        } 
-        else {
-            printf("Alert received for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
-            // handle the received alert message as needed
-        }
+        msgrcv(msq_id, &msg, sizeof(alert_msg), console_pid, 0);
+        printf("Alert received for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
     }
     return NULL;
 }

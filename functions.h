@@ -26,6 +26,7 @@ char* dequeue(struct Queue* queue);
 int queue_size(struct Queue* queue);
 void printQueue(struct Queue* queue);
 struct Node* createNode(char *command);
+void destroyQueue(struct Queue* queue);
 void enqueue(struct Queue* queue, char *command);
 
 

@@ -62,7 +62,6 @@ typedef struct sensor_struct {
     char* id;
     sensor_alerts alerts[ALERTS_PER_SENSOR];
     sensor_chave data;
-    int intervalo;
 }sensor_struct;
 
 typedef struct alert_msg {
@@ -79,6 +78,9 @@ typedef struct Queue {
     struct Node* front;
     struct Node* rear;
 }Queue;
+
+// Queue Pointer
+struct Queue* queue;
 
 //Struct to save config files
 config_struct *config;
@@ -107,5 +109,7 @@ pid_t main_pid;
 
 //Threads
 pthread_t console_reader_thread, sensor_reader_thread, dispatcher_thread, console_thread, console_receive;
+
+int running;
 
 #endif

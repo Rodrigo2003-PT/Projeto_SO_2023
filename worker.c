@@ -6,9 +6,10 @@
 
 #include "worker.h"
 
-void worker_init(int* pipe_fd){
+int sensor_exists = 0;
 
-    while (1) {
+void worker_init(int* pipe_fd){
+    while (running) {
         close(pipe_fd[1]);
         char *msg = read_from_pipe(pipe_fd[0]);
         printf("Worker message: %s\n", msg);
@@ -22,7 +23,7 @@ void worker_init(int* pipe_fd){
                 pid_t console_pid;
                 if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 4){
                     for (int i = 0; i < config->max_sensors; i++) {
-                        if (strcmp(sensor[i].data.chave, key) == 0) {
+                        if (sensor[i].id != NULL && strcmp(sensor[i].data.chave, key) == 0) {
                             for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                                  if (sensor[i].alerts[j].alert_id == NULL){
                                     sensor[i].alerts[j].pid = console_pid;
@@ -30,38 +31,46 @@ void worker_init(int* pipe_fd){
                                     sensor[i].alerts[j].alert_flag = 1;
                                     sensor[i].alerts[j].alert_min = min_val;
                                     sensor[i].alerts[j].alert_max = max_val;
-                                    break;
                                  }
                             }
+                        sensor_exists = 1;
+                        break;
                         }
                     }
+                    if(!sensor_exists)
+                        printf("Cannot add_alert to a non existing_sensor");
                 }
             }
 
             if(strncmp(msg,"remove_alert",strlen("remove_alert")) == 0){
                 char *id = NULL;
                 if(sscanf(msg,"remove_alert %s",id) == 1){
-                     for (int i = 0; i < config->max_sensors; i++) {
+                    for (int i = 0; i < config->max_sensors; i++) {
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                            if (strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
+                            if (sensor[i].id != NULL && strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
                                 sensor[i].alerts[j].pid = -1;
                                 sensor[i].alerts[j].alert_min = 0;
                                 sensor[i].alerts[j].alert_max = 0;
                                 sensor[i].alerts[j].alert_flag = 0;
                                 sensor[i].alerts[j].alert_id = NULL;
-                                break;
                             }
                         }
+                        sensor_exists = 1;
+                        break;
                     }
+                    if(!sensor_exists)
+                        printf("Cannot remove_alert from a non existing_sensor");
                 }
             }
 
             if(strncmp(msg,"list_alerts",strlen("list_alerts")) == 0){
                 for (int i = 0; i < config->max_sensors; i++) {
-                    for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                        char* alert = sensor[i].alerts[j].alert_id;
-                        if (alert != NULL) { 
-                            printf("Alerta->%s",alert);
+                    if(sensor[i].id != NULL){
+                        for (int j = 0; j < ALERTS_PER_SENSOR; j++){
+                            char* alert = sensor[i].alerts[j].alert_id;
+                            if (alert != NULL) { 
+                                printf("Alerta->%s",alert);
+                            }
                         }
                     }
                 }
@@ -72,7 +81,7 @@ void worker_init(int* pipe_fd){
         else{
 
             worker_sensor ws = create_worker_sensor(msg);
-            int sensor_exists = 0;
+            sensor_exists = 0;
 
             // Search for the sensor structure with the given key
             for(int i = 0; i < config->max_sensors; i++){
@@ -105,7 +114,6 @@ void worker_init(int* pipe_fd){
         
                     // Allocate memory for the new sensor structure
                     sensor[i].id = strdup(ws.id);
-                    sensor[i].intervalo = 3;
                     sensor_alerts* alerts = sensor[i].alerts;
                     for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
                         alerts[j].alert_flag = 0;

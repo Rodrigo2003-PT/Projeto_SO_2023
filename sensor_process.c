@@ -10,8 +10,6 @@ int msg_sent = 0;
 int fd;
 
 int main(int argc, char *argv[]){
-
-    time_t start_time, current_time;
     int value;
 
     //Ignora os sinais até fazer todas as inicializações
@@ -67,7 +65,6 @@ int main(int argc, char *argv[]){
             .avg = 0
         },
 
-        .intervalo = interval,
         .id = sensor_id,
         .alerts = {{0}}
     };
@@ -81,16 +78,11 @@ int main(int argc, char *argv[]){
             .alert_id = NULL
         };
     }
-    
-    start_time = time(NULL);
 
     while (1) {
-        current_time = time(NULL);
-        if (current_time - start_time >= interval) {
-            value = min + rand() % (max - min + 1);
-            send_message(sensor.id, sensor.data.chave, value);
-            start_time = current_time;
-        }
+        value = min + rand() % (max - min + 1);
+        send_message(sensor.id, sensor.data.chave, value);
+        sleep(interval);
     }
 
     return 0;

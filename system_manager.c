@@ -2,8 +2,6 @@
 //Miguel Miranda 2021212100
 
 //TO-DO
-//Finish dispatcher
-//Implement read_from_pipe -> worker reading from unnamed_pipe
 //Clean resources
 
 #include "system_manager.h"
@@ -13,6 +11,7 @@ int fd_2;
 int *configs = NULL;
 
 int main(){
+  running = 1;
 
   //Ignora o sinal SIG_INT e SIGTSTP até fazer todas as inicializações
   signal(SIGINT, SIG_IGN);
@@ -21,9 +20,6 @@ int main(){
 
   //Save Process Pid to clean it
   main_pid = getpid();
-
-  shm_id = -1;
-  msq_id = -1;
 
   //read config file
   configs = read_config_file();
@@ -44,11 +40,8 @@ int main(){
   create_named_pipe(PIPENAME_2);
   create_msq();
 
-  struct Queue* queue = createQueue();
+  queue = createQueue();
   struct DispatcherArgs dispatcher_args = { .pipes = pipes, .queue = queue };
-
-
-  signal(SIGINT, cleanup);
 
   alerts_watcher_process = fork();
   if(alerts_watcher_process == 0) alerts_watcher_init();
@@ -77,6 +70,8 @@ int main(){
     perror("Cannot create sensor thread: ");
     exit(1);
   }
+
+  signal(SIGINT, cleanup);
   
   pthread_join(console_reader_thread, NULL);
   pthread_join(dispatcher_thread, NULL);
@@ -188,52 +183,46 @@ void create_msq(){
 
 void cleanup(int sig) {
 
-  print("System terminating\n");
+  printf("System terminating...\n");
+  running = 0;
 
-  // // Send SIGTERM signal to worker processes
-  // for (int i = 0; i < config->num_workers; i++) {
-  //   kill(worker_pid[i], SIGKILL);
-  // }
+  destroyQueue(queue);
+  if(pthread_cond_destroy(&queue_cond) != 0)printf("Error destoying cond variable: %s\n", strerror(errno));
+  if(pthread_mutex_destroy(&queue_mutex) != 0)printf("Error destoying mutex: %s\n", strerror(errno));
 
-  // while (wait(NULL) != -1);
-
-  //Detach shared memory
-  if (shmdt(sensor) == -1) {
-    perror("Error detaching shared memory segment");
-  }
+  //Detach/delete shared memory
+  if (shmdt(sensor) == -1)printf("Error detaching shared memory segment: %s\n", strerror(errno));
+  if(shmctl(shm_id, IPC_RMID, NULL) == -1)printf("Error removing shared memory segment: %s\n", strerror(errno));
 
   //Delete message queue
-  if (msgctl(msq_id, IPC_RMID, NULL) == -1) {
-    perror("Error deleting message queue");
-  }
+  if (msgctl(msq_id, IPC_RMID, NULL) == -1)printf("Error deleting message queue: %s\n", strerror(errno));
 
   //Close and unlink named pipes
-  if (close(fd_1) == -1) {
-    perror("Error closing pipe fd1");
-  }
-  if (unlink(PIPENAME_1) == -1) {
-    perror("Error unlinking pipe PIPENAME_1");
-  }
-  if (close(fd_2) == -1) {
-    perror("Error closing pipe fd2");
-  }
-  if (unlink(PIPENAME_2) == -1) {
-    perror("Error unlinking pipe PIPENAME_2");
-  }
+  if (close(fd_1) == -1)printf("Error closing pipe fd1: %s\n", strerror(errno));
+  if (unlink(PIPENAME_1) == -1)printf("Error unlinking pipe PIPENAME_1: %s\n", strerror(errno));
+  if (close(fd_2) == -1)printf("Error closing pipe fd2: %s\n", strerror(errno));
+  if (unlink(PIPENAME_2) == -1)printf("Error unlinking pipe PIPENAME_2: %s\n", strerror(errno));
 
   //Close log file and destroy semaphore
-  fclose(log_file);
-  sem_close(log_semaphore);
-  sem_unlink(LOG_SEM_NAME);
-  sem_close(array_sem);
-  sem_unlink(ARRAY_SEM_NAME);
-  sem_close(worker_sem);
-  sem_unlink(WORKER_SEM_NAME);
+  if (fclose(log_file) == EOF)printf("Error closing log file: %s\n", strerror(errno));
+  if (sem_close(log_semaphore) == -1)printf("Error closing log semaphore: %s\n", strerror(errno));
+  if (sem_unlink(LOG_SEM_NAME) == -1)printf("Error unlinking log semaphore: %s\n", strerror(errno));
+  if (sem_close(array_sem) == -1)printf("Error closing array semaphore: %s\n", strerror(errno));
+  if (sem_unlink(ARRAY_SEM_NAME) == -1)printf("Error unlinking array semaphore: %s\n", strerror(errno));
+  if (sem_close(worker_sem) == -1)printf("Error closing worker semaphore: %s\n", strerror(errno));
+  if (sem_unlink(WORKER_SEM_NAME) == -1)printf("Error unlinking worker semaphore: %s\n", strerror(errno));
+
+  //Close processes
+  // if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
+  // for (int i = 0; i < config->num_workers; i++) {
+  //   if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
+  // }
 
   free(configs);
-
+  printf("Here");
   exit(0);
 }
+
 
 // This thread needs to be synchronized
 void *sensor_reader(void *arg){
@@ -248,7 +237,7 @@ void *sensor_reader(void *arg){
   char buffer[MESSAGE_SIZE];
   struct Queue* queue = (struct Queue*) arg;
 
-  while (1) {
+  while (running) {
 
       memset(buffer, 0, MESSAGE_SIZE);
 
@@ -291,7 +280,7 @@ void *console_reader(void *arg){
   char buffer[MESSAGE_SIZE];
   struct Queue* queue = (struct Queue*) arg;
 
-  while (1) {
+  while (running) {
 
      memset(buffer, 0, MESSAGE_SIZE);
 
@@ -324,7 +313,7 @@ void *dispatcher_reader(void *arg){
   int (*pipes)[2] = args->pipes;
   struct Queue* queue = args->queue;
 
-  while (1) {
+  while (running) {
 
     // Check if there are messages in the queue
     pthread_mutex_lock(&queue_mutex);
