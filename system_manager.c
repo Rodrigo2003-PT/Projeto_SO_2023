@@ -44,7 +44,10 @@ int main(){
   struct DispatcherArgs dispatcher_args = { .pipes = pipes, .queue = queue };
 
   alerts_watcher_process = fork();
-  if(alerts_watcher_process == 0) alerts_watcher_init();
+  if(alerts_watcher_process == 0){
+    alerts_watcher_init();
+    exit(0);
+  }
 
   worker_pid = (pid_t*) malloc(config->num_workers * sizeof(pid_t));
   for(int i = 0; i < config->num_workers; i++){
@@ -77,9 +80,8 @@ int main(){
   pthread_join(dispatcher_thread, NULL);
   pthread_join(sensor_reader_thread, NULL);
 
-  wait_workers();
   wait_alerts_watcher();
-
+  wait_workers();
 }
 
 void init_program(){
@@ -187,8 +189,6 @@ void cleanup(int sig) {
   running = 0;
 
   destroyQueue(queue);
-  if(pthread_cond_destroy(&queue_cond) != 0)printf("Error destoying cond variable: %s\n", strerror(errno));
-  if(pthread_mutex_destroy(&queue_mutex) != 0)printf("Error destoying mutex: %s\n", strerror(errno));
 
   //Detach/delete shared memory
   if (shmdt(sensor) == -1)printf("Error detaching shared memory segment: %s\n", strerror(errno));
@@ -198,9 +198,14 @@ void cleanup(int sig) {
   if (msgctl(msq_id, IPC_RMID, NULL) == -1)printf("Error deleting message queue: %s\n", strerror(errno));
 
   //Close and unlink named pipes
-  if (close(fd_1) == -1)printf("Error closing pipe fd1: %s\n", strerror(errno));
+  if (fcntl(fd_1, F_GETFL) != -1) {
+    if (close(fd_1) == -1)printf("Error closing pipe fd1: %s\n", strerror(errno));
+  }
   if (unlink(PIPENAME_1) == -1)printf("Error unlinking pipe PIPENAME_1: %s\n", strerror(errno));
-  if (close(fd_2) == -1)printf("Error closing pipe fd2: %s\n", strerror(errno));
+
+  if (fcntl(fd_2, F_GETFL) != -1) {
+    if (close(fd_2) == -1)printf("Error closing pipe fd2: %s\n", strerror(errno));
+  }
   if (unlink(PIPENAME_2) == -1)printf("Error unlinking pipe PIPENAME_2: %s\n", strerror(errno));
 
   //Close log file and destroy semaphore
@@ -213,13 +218,13 @@ void cleanup(int sig) {
   if (sem_unlink(WORKER_SEM_NAME) == -1)printf("Error unlinking worker semaphore: %s\n", strerror(errno));
 
   //Close processes
-  // if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
-  // for (int i = 0; i < config->num_workers; i++) {
-  //   if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
-  // }
+  if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
+  for (int i = 0; i < config->num_workers; i++) {
+    if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
+  }
 
   free(configs);
-  printf("Here");
+  printf("Here\n");
   exit(0);
 }
 
