@@ -17,15 +17,12 @@ void worker_init(int* pipe_fd){
         
         // Se a mensagem for um dado da user_console
         if(result == NULL){
-            printf("HERE_1\n");
             if(strncmp(msg, "add_alert", strlen("add_alert")) == 0){
-                printf("HERE_2\n");
                 char id[MAX_KEY_SIZE];
                 char key[MAX_KEY_SIZE];
                 int min_val, max_val;
                 pid_t console_pid;
                 if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 5){
-                    printf("HERE_3\n");
                     for (int i = 0; i < config->max_sensors; i++) {
                         if (sensor[i].id != NULL && strcmp(sensor[i].data.chave, key) == 0) {
                             printf("HERE_4\n");
@@ -41,15 +38,14 @@ void worker_init(int* pipe_fd){
                         sensor_exists = 1;
                         break;
                         }
-                        printf("HERE_5\n");
                     }
                     if(!sensor_exists)
-                        printf("Cannot add_alert to a non existing_sensor");
+                        printf("Cannot add_alert to a non existing_sensor\n");
                 }
             }
 
             if(strncmp(msg,"remove_alert",strlen("remove_alert")) == 0){
-                char *id = NULL;
+                char id[MAX_KEY_SIZE];
                 if(sscanf(msg,"remove_alert %s",id) == 1){
                     for (int i = 0; i < config->max_sensors; i++) {
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
@@ -59,13 +55,13 @@ void worker_init(int* pipe_fd){
                                 sensor[i].alerts[j].alert_max = 0;
                                 sensor[i].alerts[j].alert_flag = 0;
                                 sensor[i].alerts[j].alert_id = NULL;
+                                sensor_exists = 1;
                             }
                         }
-                        sensor_exists = 1;
-                        break;
+                        if(sensor_exists) break;
                     }
                     if(!sensor_exists)
-                        printf("Cannot remove_alert from a non existing_sensor");
+                        printf("Cannot remove_alert from a non existing_sensor\n");
                 }
             }
 

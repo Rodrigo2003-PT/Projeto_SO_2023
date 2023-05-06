@@ -224,7 +224,6 @@ void cleanup(int sig) {
   }
 
   free(configs);
-  printf("Here\n");
   exit(0);
 }
 
@@ -248,8 +247,6 @@ void *sensor_reader(void *arg){
 
       // Lê a mensagem do named pipe
       ssize_t bytes_read = read(fd_1, buffer, MESSAGE_SIZE);
-      printf("The number of bytes read is: %zd\n", bytes_read);
-      printf("MSG recebida sensor_reader: %s",buffer);
 
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
