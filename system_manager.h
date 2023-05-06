@@ -12,7 +12,7 @@
 
 #define WORKER_SEM_NAME "worker_semaphore"
 #define ARRAY_SEM_NAME "array_semaphore"
-#define SENSOR_SEM_NAME "sensor_semaphore"
+#define ALERTS_SEM_NAME "alerts_semaphore"
 
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;

@@ -142,6 +142,13 @@ void init_program(){
       perror("sem_open");
       exit(1);
   }
+
+  sem_unlink(ALERTS_SEM_NAME);
+  alerts_sem = sem_open(ALERTS_SEM_NAME, O_CREAT | O_EXCL, 0666, 0);
+  if (alerts_sem == SEM_FAILED) {
+      perror("sem_open");
+      exit(1);
+  }
 }
 
 //Log management
@@ -337,6 +344,8 @@ void *console_reader(void *arg){
 
 void *dispatcher_reader(void *arg){
 
+  int first_time = 1;
+
   struct DispatcherArgs *args = (struct DispatcherArgs*) arg;
   int (*pipes)[2] = args->pipes;
   struct Queue* queue = args->queue;
@@ -356,16 +365,19 @@ void *dispatcher_reader(void *arg){
     // Find a free worker
     int free_worker = -1;
 
-    sem_wait(array_sem);
+    if(first_time == 1){
+      sem_wait(array_sem);
       for (int i = 0; i < config->num_workers; i++) {
         int worker_state = *(first_worker + i);
         if (worker_state == 1) {
           free_worker = i;
           worker_state = 0;
-          sem_post(array_sem);
+          first_time++;
           break;
         }
       }
+      sem_post(array_sem);
+    }
 
     // Wait for one to become available
     if (free_worker == -1){
@@ -376,10 +388,10 @@ void *dispatcher_reader(void *arg){
         if (worker_state == 1) {
           free_worker = i;
           worker_state = 0;
-          sem_post(array_sem);
           break;
         }
       }
+      sem_post(array_sem);
     }
     // Send the message to the worker
     close(pipes[free_worker][0]);

@@ -93,6 +93,7 @@ int msq_id;
 //Shared memory id
 int shm_id;
 sem_t *array_sem;
+sem_t *alerts_sem;
 sem_t *worker_sem; 
 
 //Log file management

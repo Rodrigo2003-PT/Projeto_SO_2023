@@ -23,6 +23,7 @@ void worker_init(int* pipe_fd){
                 int min_val, max_val;
                 pid_t console_pid;
                 if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 5){
+                    sem_wait(array_sem);
                     for (int i = 0; i < config->max_sensors; i++) {
                         if (sensor[i].id != NULL && strcmp(sensor[i].data.chave, key) == 0) {
                             for (int j = 0; j < ALERTS_PER_SENSOR; j++){
@@ -47,6 +48,7 @@ void worker_init(int* pipe_fd){
             if(strncmp(msg,"remove_alert",strlen("remove_alert")) == 0){
                 char id[MAX_KEY_SIZE];
                 if(sscanf(msg,"remove_alert %s",id) == 1){
+                    sem_wait(array_sem);
                     for (int i = 0; i < config->max_sensors; i++) {
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                             if (sensor[i].id != NULL && strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
@@ -69,6 +71,7 @@ void worker_init(int* pipe_fd){
             }
 
             if(strncmp(msg,"list_alerts",strlen("list_alerts")) == 0){
+                sem_wait(array_sem);
                 for (int i = 0; i < config->max_sensors; i++) {
                     if(sensor[i].id != NULL){
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
@@ -89,6 +92,7 @@ void worker_init(int* pipe_fd){
             sensor_exists = 0;
 
             // Search for the sensor structure with the given key
+            sem_wait(array_sem);
             for(int i = 0; i < config->max_sensors; i++){
                 if(sensor[i].id != NULL && strcmp(sensor[i].id, ws.id) == 0){
                     // Found the sensor structure, now access its data fields
@@ -138,18 +142,18 @@ void worker_init(int* pipe_fd){
                     count_key++;
                 }
             }
-
-            sem_wait(array_sem);
-            for (int i = 0; i < config->num_workers; i++) {
-                int worker_state = *(first_worker + i);
-                if (worker_state == 0) {
-                    worker_state = 1;
-                    break;
-                }
-            }
-            sem_post(array_sem);
-            sem_post(worker_sem);  
         }
+
+        for (int i = 0; i < config->num_workers; i++) {
+            int worker_state = *(first_worker + i);
+            if (worker_state == 0) {
+                worker_state = 1;
+                break;
+            }
+        }
+        sem_post(array_sem);
+        sem_post(alerts_sem);
+        sem_post(worker_sem);  
     }
 }
 

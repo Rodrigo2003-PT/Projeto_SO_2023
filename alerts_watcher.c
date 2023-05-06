@@ -5,6 +5,8 @@
 
 void alerts_watcher_init(){
     while(running) {
+        sem_wait(alerts_sem);
+        sem_wait(array_sem);
         for (int i = 0; i < config->max_sensors; i++) {
             for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
                 if (sensor[i].id != NULL && sensor[i].alerts[j].alert_flag == 1) {
@@ -24,5 +26,6 @@ void alerts_watcher_init(){
                 }
             }
         }
+        sem_post(array_sem);
     }
 }
