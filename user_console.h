@@ -11,6 +11,7 @@
 
 pid_t console_pid;
 
+int get_msg_id();
 void start_user_console();
 void sigint_handler(int sig);
 void send_command(char *command);

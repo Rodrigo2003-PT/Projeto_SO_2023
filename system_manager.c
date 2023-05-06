@@ -18,9 +18,6 @@ int main(){
   signal(SIGTSTP, SIG_IGN);
   signal(SIGUSR1, SIG_IGN);
 
-  //Save Process Pid to clean it
-  main_pid = getpid();
-
   //read config file
   configs = read_config_file();
   if (configs == NULL){
@@ -31,7 +28,6 @@ int main(){
 
   init_log();
 
-  //generate shared memory and control mechanisms
   init_program();
 
   int pipes[config->num_workers][2];
@@ -95,13 +91,38 @@ void init_program(){
   }
 
   if((sensor = (sensor_struct *) shmat(shm_id, NULL, 0)) == (sensor_struct*)-1){
-      print("Error attaching shared memory in race_manager process");
+      print("Error attaching shared memory in process");
       exit(0);
   }
 
   //Define first of each type for easy consulting
   first_worker = (int*) &sensor[config->max_sensors];
   count_key = *(first_worker + config->num_workers);
+
+  //Initialize sensor structs
+  for (int i = 0; i < config->max_sensors; i++) {
+    sensor[i] = (sensor_struct) {
+        .data = {
+            .chave = NULL,
+            .last_value = 0,
+            .min_value = -1,
+            .max_value = -1,
+            .count = 0,
+            .avg = -1
+        },
+        .id = NULL,
+        .alerts = {{0}}
+    };
+    for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
+        sensor[i].alerts[j] = (sensor_alerts) {
+            .pid = -1, 
+            .alert_min = -1,
+            .alert_max = -1,
+            .alert_flag = 0,
+            .alert_id = NULL
+        };
+    }
+}
 
   // Initialize all workers to 1
   for (int i = 0; i < config->num_workers; i++) {
@@ -181,6 +202,13 @@ void create_msq(){
     print("Error creating message queue");
     exit(1);
   }
+  FILE *fp = fopen(MSQ_FILE, "w");
+  if (fp == NULL) {
+    printf("Error opening file\n");
+    exit(1);
+  }
+  fprintf(fp, "%d", msq_id);
+  fclose(fp);
 }
 
 void cleanup(int sig) {
@@ -227,8 +255,6 @@ void cleanup(int sig) {
   exit(0);
 }
 
-
-// This thread needs to be synchronized
 void *sensor_reader(void *arg){
 
   // Opens the pipe for reading
@@ -355,7 +381,6 @@ void *dispatcher_reader(void *arg){
         }
       }
     }
-
     // Send the message to the worker
     close(pipes[free_worker][0]);
     int bytes_written = write(pipes[free_worker][1], msg, strlen(msg));

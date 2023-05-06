@@ -11,12 +11,13 @@ void alerts_watcher_init(){
                     if (sensor[i].data.last_value < sensor[i].alerts[j].alert_min || sensor[i].data.last_value > sensor[i].alerts[j].alert_max) {
                         int msg_type = sensor[i].alerts[j].pid;
                         alert_msg msg;
-                        msg.sensor_id = sensor[i].id;
+                        msg.sensor_id = strdup(sensor[i].id);
                         msg.triggered_value = sensor[i].data.last_value;
                         if (msgsnd(msq_id, &msg, sizeof(alert_msg), msg_type) == -1)
-                            perror("msgsnd failed");   
+                            perror("msgsnd failed");
                         char buf[MESSAGE_SIZE];
-                        sprintf(buf,"Alert triggered for sensor %s: value = %d\n", sensor[i].id, sensor[i].data.last_value);
+                        sprintf(buf,"Alert triggered for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
+                        free(msg.sensor_id);
                         printf("%s",buf);
                         print(buf);
                     }

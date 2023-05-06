@@ -25,7 +25,6 @@ void worker_init(int* pipe_fd){
                 if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 5){
                     for (int i = 0; i < config->max_sensors; i++) {
                         if (sensor[i].id != NULL && strcmp(sensor[i].data.chave, key) == 0) {
-                            printf("HERE_4\n");
                             for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                                  if (sensor[i].alerts[j].alert_id == NULL){
                                     sensor[i].alerts[j].pid = console_pid;
@@ -39,8 +38,9 @@ void worker_init(int* pipe_fd){
                         break;
                         }
                     }
-                    if(!sensor_exists)
+                    if(!sensor_exists){
                         printf("Cannot add_alert to a non existing_sensor\n");
+                    }
                 }
             }
 
@@ -58,10 +58,13 @@ void worker_init(int* pipe_fd){
                                 sensor_exists = 1;
                             }
                         }
-                        if(sensor_exists) break;
+                        if(sensor_exists){
+                            break;
+                        }
                     }
-                    if(!sensor_exists)
+                    if(!sensor_exists){
                         printf("Cannot remove_alert from a non existing_sensor\n");
+                    }
                 }
             }
 
@@ -89,16 +92,17 @@ void worker_init(int* pipe_fd){
             for(int i = 0; i < config->max_sensors; i++){
                 if(sensor[i].id != NULL && strcmp(sensor[i].id, ws.id) == 0){
                     // Found the sensor structure, now access its data fields
-                    sensor_chave data = sensor[i].data;
-                    if(strcmp(data.chave, ws.chave) == 0){
+                    if(strcmp(sensor[i].data.chave, ws.chave) == 0){
                         //Primeira vez a receber dados do sensor no sistema.
-                        if(data.count == 0)count_key++;
-                        data.last_value = ws.value;
-                        data.avg = (data.last_value + data.min_value + data.max_value) / 3;
-                        if(ws.value < data.min_value)data.min_value = ws.value;
-                        if(ws.value > data.max_value)data.max_value = ws.value;
-                        data.count++;
+                        if(sensor[i].data.count == 0)count_key++;
+                        sensor[i].data.last_value = ws.value;
+                        sensor[i].data.avg = (sensor[i].data.last_value + sensor[i].data.min_value + sensor[i].data.max_value) / 3;
+                        if(ws.value < sensor[i].data.min_value)sensor[i].data.min_value = ws.value;
+                        if(ws.value > sensor[i].data.max_value)sensor[i].data.max_value = ws.value;
+                        sensor[i].data.count++;
                     }
+                    free(ws.id);
+                    free(ws.chave);
                     sensor_exists = 1;
                     break;
                 }
@@ -113,24 +117,24 @@ void worker_init(int* pipe_fd){
                     if (i == config->max_sensors) {
                         printf("Error: maximum number of sensors reached\n");
                     }
-        
+
                     // Allocate memory for the new sensor structure
                     sensor[i].id = strdup(ws.id);
-                    sensor_alerts* alerts = sensor[i].alerts;
+                    free(ws.id);
                     for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
-                        alerts[j].alert_flag = 0;
-                        alerts[j].pid = -1;
-                        alerts[j].alert_min = -1;
-                        alerts[j].alert_max = -1;
-                        alerts[j].alert_id = NULL;
+                        sensor[i].alerts[j].alert_flag = 0;
+                        sensor[i].alerts[j].pid = -1;
+                        sensor[i].alerts[j].alert_min = -1;
+                        sensor[i].alerts[j].alert_max = -1;
+                        sensor[i].alerts[j].alert_id = NULL;
                     }
-                    sensor_chave* data = &(sensor[i].data);
-                    data->chave = strdup(ws.chave);
-                    data->last_value = ws.value;
-                    data->min_value = ws.value;
-                    data->max_value = ws.value;
-                    data->count = 1;
-                    data->avg = ws.value;
+                    sensor[i].data.chave = strdup(ws.chave);
+                    free(ws.chave);
+                    sensor[i].data.last_value = ws.value;
+                    sensor[i].data.min_value = ws.value;
+                    sensor[i].data.max_value = ws.value;
+                    sensor[i].data.count = 1;
+                    sensor[i].data.avg = ws.value;
                     count_key++;
                 }
             }

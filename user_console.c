@@ -7,15 +7,18 @@
 #include "user_console.h"
 
 int pipe_fd;
+int msqid;
 
 int main(int argc, char **argv){
 
-     if (argc != 2) {
+    if (argc != 2) {
         printf("Usage: %s <console_id>\n", argv[0]);
         exit(0);
     }
 
     console_pid = getpid();
+
+    msqid = get_msg_id();
 
     signal(SIGINT, sigint_handler);
 
@@ -112,6 +115,24 @@ void process_command(char *command) {
     free(cmd_copy);
 }
 
+int get_msg_id(){
+    int msqid;
+    FILE *fp = fopen(MSQ_FILE, "r");
+    if (fp == NULL) {
+        perror("Error opening file");
+        exit(1);
+    }
+    if (fscanf(fp, "%d", &msqid) != 1) {
+        perror("Error reading msqid from file");
+        exit(1);
+    }
+    fclose(fp);
+    if (remove(MSQ_FILE) != 0) {
+        perror("Error deleting file");
+    }
+    return msqid;
+}
+
 void send_command(char *command) {
 
     if ((pipe_fd = open(PIPENAME_2, O_WRONLY)) < 0) {
@@ -126,7 +147,6 @@ void send_command(char *command) {
 }
 
 void *console_function(void *arg){
-
     while (1) {
         char command[MAX_MSG_SIZE];
         printf("> ");
@@ -141,8 +161,10 @@ void *console_function(void *arg){
 void *receive_function(void *arg){
     alert_msg msg;
     while(1) {
-        if (msgrcv(msq_id, &msg, sizeof(alert_msg), console_pid, 0) == -1) {
+        if (msgrcv(msqid, &msg, sizeof(alert_msg), console_pid, 0) == -1) {
             if (errno == EINVAL) {
+                printf("Error msg_queue: %s\n", strerror(errno));
+                kill(getpid(), SIGINT);
                 break;
             }
         }
@@ -154,6 +176,7 @@ void *receive_function(void *arg){
 void sigint_handler(int sig) {
     printf("Console  process interrupted\n");
     pthread_cancel(console_thread);
+    pthread_cancel(console_receive);
     close(pipe_fd);
     exit(0);
 }

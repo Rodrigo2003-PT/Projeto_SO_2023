@@ -33,6 +33,8 @@
 
 #define PIPENAME_2 "CONSOLE_PIPE"
 
+#define MSQ_FILE "msq_id.txt"
+
 typedef struct config_struct{
     int queue_slot_number;
     int num_workers;
@@ -105,7 +107,6 @@ int count_key;
 //Processes PIDS
 pid_t alerts_watcher_process;
 pid_t* worker_pid;
-pid_t main_pid;
 
 //Threads
 pthread_t console_reader_thread, sensor_reader_thread, dispatcher_thread, console_thread, console_receive;
