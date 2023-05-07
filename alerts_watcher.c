@@ -10,17 +10,19 @@ void alerts_watcher_init(){
         for (int i = 0; i < config->max_sensors; i++) {
             for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
                 if (sensor[i].id != NULL && sensor[i].alerts[j].alert_flag == 1) {
-                    printf("sensor_4: %s\n",sensor[i].id);
+                    printf("Memory location: %p\n",(void*)&sensor[i].id);
+                    printf("sensor[i].id: %s\n",sensor[i].id);
+                    printf("sensor[i].dat.chave: %s\n",sensor[i].data.chave);
+                    printf("sensor[i].dat.min: %d\n",sensor[i].data.min_value);
                     if (sensor[i].data.last_value < sensor[i].alerts[j].alert_min || sensor[i].data.last_value > sensor[i].alerts[j].alert_max) {
-                        int msg_type = sensor[i].alerts[j].pid;
                         alert_msg msg;
-                        msg.sensor_id = strdup(sensor[i].id);
+                        msg.mtype = sensor[i].alerts[j].pid;
+                        strcpy(msg.sensor_id, sensor[i].id);
                         msg.triggered_value = sensor[i].data.last_value;
-                        if (msgsnd(msq_id, &msg, sizeof(alert_msg), msg_type) == -1)
+                        if (msgsnd(msq_id, &msg, sizeof(alert_msg), 0) == -1)
                             perror("msgsnd failed");
                         char buf[MESSAGE_SIZE];
                         sprintf(buf,"Alert triggered for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
-                        free(msg.sensor_id);
                         printf("%s",buf);
                         print(buf);
                     }

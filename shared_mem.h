@@ -67,7 +67,8 @@ typedef struct sensor_struct {
 }sensor_struct;
 
 typedef struct alert_msg {
-    char* sensor_id;
+    long mtype;
+    char sensor_id[MAX_SENSOR_ID_SIZE];
     int triggered_value;
 } alert_msg;
 

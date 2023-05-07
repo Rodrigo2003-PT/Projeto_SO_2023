@@ -159,8 +159,8 @@ void *console_function(void *arg){
 }
 
 void *receive_function(void *arg){
-    alert_msg msg;
     while(1) {
+        alert_msg msg;
         if (msgrcv(msqid, &msg, sizeof(alert_msg), console_pid, 0) == -1) {
             printf("Error receiving message from message queue: %s\n", strerror(errno));
             kill(getpid(), SIGINT);

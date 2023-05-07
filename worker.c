@@ -10,6 +10,7 @@ int sensor_exists = 0;
 
 void worker_init(int* pipe_fd){
     while (running) {
+        sensor_exists = 0;
         close(pipe_fd[1]);
         char *msg = read_from_pipe(pipe_fd[0]);
         printf("Worker message: %s\n", msg);
@@ -36,7 +37,6 @@ void worker_init(int* pipe_fd){
                                     break;
                                  }
                             }
-                        printf("sensor_3: %s\n",sensor[i].id);
                         sensor_exists = 1;
                         break;
                         }
@@ -52,23 +52,21 @@ void worker_init(int* pipe_fd){
                 if(sscanf(msg,"remove_alert %s",id) == 1){
                     sem_wait(array_sem);
                     for (int i = 0; i < config->max_sensors; i++) {
-                        printf("HERE_1\n");
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                            printf("HERE_2\n");
-                            if (sensor[i].id != NULL && strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
-                                printf("HERE_3\n");
+                            if (sensor[i].id != NULL && sensor[i].alerts[j].alert_id != NULL && strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
+                                printf("Memory location_worker: %p\n",(void*)&sensor[i].id);
+                                printf("sensor[i].id: %s\n",sensor[i].id);
+                                printf("sensor[i].dat.chave: %s\n",sensor[i].data.chave);
+                                printf("sensor[i].dat.min: %d\n",sensor[i].data.min_value);
                                 sensor[i].alerts[j].pid = -1;
                                 sensor[i].alerts[j].alert_min = 0;
                                 sensor[i].alerts[j].alert_max = 0;
                                 sensor[i].alerts[j].alert_flag = 0;
                                 sensor[i].alerts[j].alert_id = NULL;
+                                printf("alert_removed successfully\n");
                                 sensor_exists = 1;
-                                printf("HERE_4\n");
                             }
-                            printf("HERE_5\n");
                         }
-                        printf("HERE_6\n");
-                        if(sensor_exists)printf("alert_removed successfully\n");
                     }
                     if(!sensor_exists){
                         printf("Cannot remove_alert from a non existing_sensor\n");
@@ -95,26 +93,22 @@ void worker_init(int* pipe_fd){
         else{
 
             worker_sensor ws = create_worker_sensor(msg);
-            sensor_exists = 0;
 
             // Search for the sensor structure with the given key
             sem_wait(array_sem);
             for(int i = 0; i < config->max_sensors; i++){
                 if(sensor[i].id != NULL && strcmp(sensor[i].id, ws.id) == 0){
                     // Found the sensor structure, now access its data fields
-                    if(strcmp(sensor[i].data.chave, ws.chave) == 0){
-                        //Primeira vez a receber dados do sensor no sistema.
-                        if(sensor[i].data.count == 0)count_key++;
-                        sensor[i].data.last_value = ws.value;
-                        sensor[i].data.avg = (sensor[i].data.last_value + sensor[i].data.min_value + sensor[i].data.max_value) / 3;
-                        if(ws.value < sensor[i].data.min_value)sensor[i].data.min_value = ws.value;
-                        if(ws.value > sensor[i].data.max_value)sensor[i].data.max_value = ws.value;
-                        sensor[i].data.count++;
-                    }
+                    if(sensor[i].data.count == 0)count_key++;
+                    sensor[i].data.last_value = ws.value;
+                    sensor[i].data.avg = (sensor[i].data.last_value + sensor[i].data.min_value + sensor[i].data.max_value) / 3;
+                    if(ws.value < sensor[i].data.min_value)sensor[i].data.min_value = ws.value;
+                    if(ws.value > sensor[i].data.max_value)sensor[i].data.max_value = ws.value;
+                    sensor[i].data.count++;
+                    
                     free(ws.id);
                     free(ws.chave);
                     sensor_exists = 1;
-                    printf("sensor_2: %s\n",sensor[i].id);
                     break;
                 }
             }
@@ -147,7 +141,6 @@ void worker_init(int* pipe_fd){
                     sensor[i].data.count = 1;
                     sensor[i].data.avg = ws.value;
                     count_key++;
-                    printf("sensor_1: %s\n",sensor[i].id);
                 }
             }
         }
