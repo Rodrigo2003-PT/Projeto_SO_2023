@@ -33,8 +33,10 @@ void worker_init(int* pipe_fd){
                                     sensor[i].alerts[j].alert_flag = 1;
                                     sensor[i].alerts[j].alert_min = min_val;
                                     sensor[i].alerts[j].alert_max = max_val;
+                                    break;
                                  }
                             }
+                        printf("sensor_3: %s\n",sensor[i].id);
                         sensor_exists = 1;
                         break;
                         }
@@ -50,19 +52,23 @@ void worker_init(int* pipe_fd){
                 if(sscanf(msg,"remove_alert %s",id) == 1){
                     sem_wait(array_sem);
                     for (int i = 0; i < config->max_sensors; i++) {
+                        printf("HERE_1\n");
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
+                            printf("HERE_2\n");
                             if (sensor[i].id != NULL && strcmp(sensor[i].alerts[j].alert_id, id) == 0) {
+                                printf("HERE_3\n");
                                 sensor[i].alerts[j].pid = -1;
                                 sensor[i].alerts[j].alert_min = 0;
                                 sensor[i].alerts[j].alert_max = 0;
                                 sensor[i].alerts[j].alert_flag = 0;
                                 sensor[i].alerts[j].alert_id = NULL;
                                 sensor_exists = 1;
+                                printf("HERE_4\n");
                             }
+                            printf("HERE_5\n");
                         }
-                        if(sensor_exists){
-                            break;
-                        }
+                        printf("HERE_6\n");
+                        if(sensor_exists)printf("alert_removed successfully\n");
                     }
                     if(!sensor_exists){
                         printf("Cannot remove_alert from a non existing_sensor\n");
@@ -77,7 +83,7 @@ void worker_init(int* pipe_fd){
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                             char* alert = sensor[i].alerts[j].alert_id;
                             if (alert != NULL) { 
-                                printf("Alerta->%s",alert);
+                                printf("Alerta->%s\n",alert);
                             }
                         }
                     }
@@ -108,6 +114,7 @@ void worker_init(int* pipe_fd){
                     free(ws.id);
                     free(ws.chave);
                     sensor_exists = 1;
+                    printf("sensor_2: %s\n",sensor[i].id);
                     break;
                 }
             }
@@ -140,6 +147,7 @@ void worker_init(int* pipe_fd){
                     sensor[i].data.count = 1;
                     sensor[i].data.avg = ws.value;
                     count_key++;
+                    printf("sensor_1: %s\n",sensor[i].id);
                 }
             }
         }

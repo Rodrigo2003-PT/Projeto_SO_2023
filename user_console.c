@@ -162,11 +162,9 @@ void *receive_function(void *arg){
     alert_msg msg;
     while(1) {
         if (msgrcv(msqid, &msg, sizeof(alert_msg), console_pid, 0) == -1) {
-            if (errno == EINVAL) {
-                printf("Error msg_queue: %s\n", strerror(errno));
-                kill(getpid(), SIGINT);
-                break;
-            }
+            printf("Error receiving message from message queue: %s\n", strerror(errno));
+            kill(getpid(), SIGINT);
+            break;
         }
         printf("Alert received for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
     }

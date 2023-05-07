@@ -10,6 +10,7 @@ void alerts_watcher_init(){
         for (int i = 0; i < config->max_sensors; i++) {
             for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
                 if (sensor[i].id != NULL && sensor[i].alerts[j].alert_flag == 1) {
+                    printf("sensor_4: %s\n",sensor[i].id);
                     if (sensor[i].data.last_value < sensor[i].alerts[j].alert_min || sensor[i].data.last_value > sensor[i].alerts[j].alert_max) {
                         int msg_type = sensor[i].alerts[j].pid;
                         alert_msg msg;
