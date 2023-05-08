@@ -111,21 +111,21 @@ void init_program(){
   //Initialize all chaves
   for (int i = 0; i < config->max_keys; i++) {
     chave[i] = (sensor_chave) {
-      .chave = {'\0'},
-      .last_value = 0,
-      .min_value = -1,
-      .max_value = -1,
+      .chave = "",
+      .last_value = -999,
+      .min_value = -999,
+      .max_value = 999,
       .count = 0,
-      .avg = -1,
+      .avg = -999,
       .alerts = {{0}}
     };
     for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
       chave[i].alerts[j] = (sensor_alerts) {
           .pid = -1, 
-          .alert_min = -1,
-          .alert_max = -1,
+          .alert_min = -999,
+          .alert_max = 999,
           .alert_flag = 0,
-          .alert_id = NULL
+          .alert_id = ""
       };
     }
   };

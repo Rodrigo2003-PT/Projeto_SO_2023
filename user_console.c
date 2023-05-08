@@ -162,7 +162,6 @@ void *receive_function(void *arg){
             break;
         }
         printf("Alert received for sensor %s: value = %d\n", msg.key, msg.triggered_value);
-        fflush(stdout);
     }
     return NULL;
 }

@@ -71,7 +71,7 @@ int main(int argc, char *argv[]){
             .alert_min = -1,
             .alert_max = -1,
             .alert_flag = 0,
-            .alert_id = NULL
+            .alert_id = ""
         };
     }
 

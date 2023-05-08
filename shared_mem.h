@@ -48,7 +48,7 @@ typedef struct sensor_alerts{
     int alert_min;
     int alert_max;
     int alert_flag;
-    char* alert_id;
+    char alert_id[MAX_KEY_SIZE];
 }sensor_alerts;
 
 typedef struct sensor_chave{

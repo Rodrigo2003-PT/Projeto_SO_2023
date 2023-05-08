@@ -32,12 +32,12 @@ void worker_init(int* pipe_fd){
                     for (int i = 0; i < config->max_keys; i++) {
                         if (strcmp(chave[i].chave, "") != 0 && strcmp(chave[i].chave, key) == 0) {
                             for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                                 if (chave[i].alerts[j].alert_id == NULL){
+                                 if (strcmp(chave[i].alerts[j].alert_id, "") == 0){
                                     chave[i].alerts[j].pid = console_pid;
-                                    chave[i].alerts[j].alert_id = id;
                                     chave[i].alerts[j].alert_flag = 1;
                                     chave[i].alerts[j].alert_min = min_val;
                                     chave[i].alerts[j].alert_max = max_val;
+                                    strcpy(chave[i].alerts[j].alert_id,id);
                                     break;
                                  }
                             }
@@ -57,12 +57,12 @@ void worker_init(int* pipe_fd){
                     sem_wait(array_sem);
                     for (int i = 0; i < config->max_keys; i++) {
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                            if (strcmp(chave[i].chave, "") != 0 && chave[i].alerts[j].alert_id != NULL && strcmp(chave[i].alerts[j].alert_id, id) == 0) {
+                            if (strcmp(chave[i].chave, "") != 0 && strcmp(chave[i].alerts[j].alert_id, id) == 0) {
                                 chave[i].alerts[j].pid = -1;
                                 chave[i].alerts[j].alert_min = 0;
                                 chave[i].alerts[j].alert_max = 0;
                                 chave[i].alerts[j].alert_flag = 0;
-                                chave[i].alerts[j].alert_id = NULL;
+                                strcpy(chave[i].alerts[j].alert_id,"");
                                 printf("alert_removed successfully\n");
                                 chave_exists = 1;
                             }
@@ -79,11 +79,48 @@ void worker_init(int* pipe_fd){
                 for (int i = 0; i < config->max_keys; i++) {
                     if(strcmp(chave[i].chave, "") != 0){
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                            char* alert = chave[i].alerts[j].alert_id;
-                            if (alert != NULL) { 
-                                printf("Alerta->%s\n",alert);
+                            if (strcmp(chave[i].alerts[j].alert_id, "") != 0) { 
+                                printf("%s ",chave[i].alerts[j].alert_id);
+                                printf("%s ",chave[i].chave);
+                                printf("%d ",chave[i].alerts[j].alert_min);
+                                printf("%d \n",chave[i].alerts[j].alert_max);
                             }
                         }
+                    }
+                }
+            }
+
+            if(strncmp(msg,"sensors",strlen("sensors")) == 0){
+                sem_wait(array_sem);
+                for(int i = 0; i < config->max_sensors; i++){
+                    if(strcmp(sensor[i].id, "") != 0) printf("%s\n",sensor[i].id);
+                }
+            }
+
+            if(strncmp(msg,"stats",strlen("stats")) == 0){
+                sem_wait(array_sem);
+                for(int i = 0; i < config->max_keys; i++){
+                    if(strcmp(chave[i].chave, "") != 0){
+                        printf("%s ",chave[i].chave);
+                        printf("%d ",chave[i].last_value);
+                        printf("%d ",chave[i].min_value);
+                        printf("%d ",chave[i].max_value);
+                        printf("%f ",chave[i].avg);
+                        printf("%d \n",chave[i].count);
+                    }
+                }
+            }
+
+            if(strncmp(msg,"reset",strlen("reset")) == 0){
+                sem_wait(array_sem);
+                for(int i = 0; i < config->max_keys; i++){
+                    if(strcmp(chave[i].chave, "") != 0){
+                        strcpy(chave[i].chave, "");
+                        chave[i].last_value = -999;
+                        chave[i].min_value = -999;
+                        chave[i].max_value = 999;
+                        chave[i].avg = -999;
+                        chave[i].count = 0;
                     }
                 }
             }
