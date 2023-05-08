@@ -125,9 +125,6 @@ int get_msg_id(){
         exit(1);
     }
     fclose(fp);
-    if (remove(MSQ_FILE) != 0) {
-        perror("Error deleting file");
-    }
     return msqid;
 }
 
@@ -165,6 +162,7 @@ void *receive_function(void *arg){
             break;
         }
         printf("Alert received for sensor %s: value = %d\n", msg.key, msg.triggered_value);
+        fflush(stdout);
     }
     return NULL;
 }

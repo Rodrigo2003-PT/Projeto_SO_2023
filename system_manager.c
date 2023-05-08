@@ -223,6 +223,10 @@ void cleanup(int sig) {
 
   printf("System terminating...\n");
   running = 0;
+  
+  if (remove(MSQ_FILE) != 0) {
+      perror("Error deleting file");
+  }
 
   destroyQueue(queue);
 

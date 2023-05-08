@@ -102,13 +102,13 @@ void worker_init(int* pipe_fd){
                             // sensor já comunicou com o sistema
                             sensor_exists = 1;
                             for(int j = 0; j < config->max_keys; j++){
-                                if(strcmp(chave[i].chave, "") != 0 && strcmp(chave[i].chave,ws.chave) == 0){
+                                if(strcmp(chave[j].chave, "") != 0 && strcmp(chave[j].chave,ws.chave) == 0){
                                     //chave enviada existe no sistema -> atualização
-                                    chave[i].last_value = ws.value;
-                                    if(ws.value < chave[i].min_value)chave[i].min_value = ws.value;
-                                    if(ws.value > chave[i].max_value)chave[i].max_value = ws.value;
-                                    chave[i].avg = (chave[i].last_value + chave[i].min_value + chave[i].max_value) / 3;
-                                    chave[i].count++;
+                                    chave[j].last_value = ws.value;
+                                    if(ws.value < chave[j].min_value)chave[j].min_value = ws.value;
+                                    if(ws.value > chave[j].max_value)chave[j].max_value = ws.value;
+                                    chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
+                                    chave[j].count++;
                                     
                                     free(ws.id);
                                     free(ws.chave);
@@ -118,13 +118,13 @@ void worker_init(int* pipe_fd){
                             }
                             if(!chave_exists){
                                 for(int j = 0; j < config->max_keys; j++){
-                                    if(strcmp(chave[i].chave, "") == 0){
+                                    if(strcmp(chave[j].chave, "") == 0){
                                         //chave slot available
-                                        strcpy(chave[i].chave,ws.chave);
-                                        chave[i].last_value = ws.value;
-                                        chave[i].min_value = ws.value;
-                                        chave[i].max_value = ws.value;
-                                        chave[i].avg = (chave[i].last_value + chave[i].min_value + chave[i].max_value) / 3;
+                                        strcpy(chave[j].chave,ws.chave);
+                                        chave[j].last_value = ws.value;
+                                        chave[j].min_value = ws.value;
+                                        chave[j].max_value = ws.value;
+                                        chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
                                         
                                         free(ws.id);
                                         free(ws.chave);
