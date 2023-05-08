@@ -43,15 +43,6 @@ typedef struct config_struct{
     int max_alerts;
 }config_struct;
 
-typedef struct sensor_chave{
-    char* chave;
-    int last_value;
-    int min_value;
-    int max_value;
-    int count;
-    double avg;
-}sensor_chave;
-
 typedef struct sensor_alerts{
     pid_t pid;
     int alert_min;
@@ -60,15 +51,23 @@ typedef struct sensor_alerts{
     char* alert_id;
 }sensor_alerts;
 
-typedef struct sensor_struct {
-    char* id;
+typedef struct sensor_chave{
+    int count;
+    double avg;
+    int min_value;
+    int max_value;
+    int last_value;
+    char chave[MAX_KEY_SIZE];
     sensor_alerts alerts[ALERTS_PER_SENSOR];
-    sensor_chave data;
-}sensor_struct;
+}sensor_chave;
+
+typedef struct sensor_id{
+    char id[MAX_SENSOR_ID_SIZE];
+}sensor_id;
 
 typedef struct alert_msg {
     long mtype;
-    char sensor_id[MAX_SENSOR_ID_SIZE];
+    char key[MAX_KEY_SIZE];
     int triggered_value;
 } alert_msg;
 
@@ -102,7 +101,8 @@ FILE *log_file;
 sem_t *log_semaphore;
 
 //Shared memory locations
-sensor_struct *sensor;
+sensor_chave *chave;
+sensor_id *sensor;
 int *first_worker;
 int count_key;
 

@@ -84,13 +84,13 @@ void init_program(){
   //Generate global structure shared memory
 
   // shared_mem size incomplete
-  int shared_mem_size = (sizeof(sensor_struct) * config->max_sensors) + (sizeof(int) * config->num_workers) + sizeof(int);
+  int shared_mem_size = (sizeof(sensor_id) * config->max_sensors) + (sizeof(int) * config->num_workers) + sizeof(int) + (sizeof(sensor_chave) * config->max_keys);
   if ((shm_id = shmget(IPC_PRIVATE, shared_mem_size, IPC_CREAT | IPC_EXCL | 0700)) < 1){
     print("Error in shmget with IPC_CREAT\n");
     exit(1);
   }
 
-  if((sensor = (sensor_struct *) shmat(shm_id, NULL, 0)) == (sensor_struct*)-1){
+  if((sensor = (sensor_id*) shmat(shm_id, NULL, 0)) == (sensor_id*)-1){
       print("Error attaching shared memory in process");
       exit(0);
   }
@@ -98,36 +98,37 @@ void init_program(){
   //Define first of each type for easy consulting
   first_worker = (int*) &sensor[config->max_sensors];
   count_key = *(first_worker + config->num_workers);
+  chave = (sensor_chave*)(&first_worker[config->num_workers + 1]);;
 
-  //Initialize sensor structs
-  for (int i = 0; i < config->max_sensors; i++) {
-    sensor[i] = (sensor_struct) {
-        .data = {
-            .chave = NULL,
-            .last_value = 0,
-            .min_value = -1,
-            .max_value = -1,
-            .count = 0,
-            .avg = -1
-        },
-        .id = NULL,
-        .alerts = {{0}}
-    };
-    for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
-        sensor[i].alerts[j] = (sensor_alerts) {
-            .pid = -1, 
-            .alert_min = -1,
-            .alert_max = -1,
-            .alert_flag = 0,
-            .alert_id = NULL
-        };
-    }
-}
+  //Initialize sensor id
+  memset(sensor, 0, sizeof(sensor_id) * config->max_sensors);
 
   // Initialize all workers to 1
   for (int i = 0; i < config->num_workers; i++) {
     *(first_worker + i) = 1;
   }
+
+  //Initialize all chaves
+  for (int i = 0; i < config->max_keys; i++) {
+    chave[i] = (sensor_chave) {
+      .chave = {'\0'},
+      .last_value = 0,
+      .min_value = -1,
+      .max_value = -1,
+      .count = 0,
+      .avg = -1,
+      .alerts = {{0}}
+    };
+    for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
+      chave[i].alerts[j] = (sensor_alerts) {
+          .pid = -1, 
+          .alert_min = -1,
+          .alert_max = -1,
+          .alert_flag = 0,
+          .alert_id = NULL
+      };
+    }
+  };
 
   sem_unlink(ARRAY_SEM_NAME);
   array_sem = sem_open(ARRAY_SEM_NAME, O_CREAT | O_EXCL, 0666, 1);

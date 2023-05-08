@@ -17,21 +17,19 @@ int main(int argc, char *argv[]){
     signal(SIGTSTP, SIG_IGN);
     signal(SIGUSR1, SIG_IGN);
 
-    sensor_pid = getpid();
-
     if (argc != 7) {
         printf("Usage: {sensor} {sensor id} {interval} {key} {min} {max}\n");
         exit(1);
     }
 
-    char *sensor_id = argv[2];
+    char *id_input = argv[2];
     int interval = atoi(argv[3]);
     char *key = argv[4];
     int min = atoi(argv[5]);
     int max = atoi(argv[6]);
 
     // Validate input parameters
-    if (strlen(sensor_id) < MIN_SENSOR_ID_SIZE || strlen(sensor_id) > MAX_SENSOR_ID_SIZE) {
+    if (strlen(id_input) < MIN_SENSOR_ID_SIZE || strlen(id_input) > MAX_SENSOR_ID_SIZE) {
         printf("Error: sensor id must be between 3 and 32 characters\n");
         exit(1);
     }
@@ -54,23 +52,21 @@ int main(int argc, char *argv[]){
     signal(SIGINT, handle_sigint);
     signal(SIGTSTP, handle_sigtstp);
 
-    // Set up sensor data
-    sensor_struct sensor = {
-        .data = {
-            .chave = key,
-            .last_value = 0,
-            .min_value = min,
-            .max_value = max,
-            .count = 0,
-            .avg = 0
-        },
+    sensor_id sensor = {0};
+    strcpy(sensor.id,id_input);
 
-        .id = sensor_id,
+    // Set up sensor data
+    sensor_chave data_chave = {
+        .last_value = 0,
+        .min_value = min,
+        .max_value = max,
+        .count = 0,
+        .avg = -1,
         .alerts = {{0}}
     };
 
     for (int i = 0; i < ALERTS_PER_SENSOR; i++) {
-        sensor.alerts[i] = (sensor_alerts) {
+        data_chave.alerts[i] = (sensor_alerts) {
             .pid = -1, 
             .alert_min = -1,
             .alert_max = -1,
@@ -79,9 +75,11 @@ int main(int argc, char *argv[]){
         };
     }
 
+    strcpy(data_chave.chave,key);
+
     while (1) {
         value = min + rand() % (max - min + 1);
-        send_message(sensor.id, sensor.data.chave, value);
+        send_message(sensor.id, data_chave.chave, value);
         sleep(interval);
     }
 
@@ -107,6 +105,7 @@ void send_message(char* id, char* key, int value) {
 
     if ((fd = open(PIPENAME_1, O_WRONLY)) < 0) {
             perror("Cannot open pipe for writing: ");
+            close(fd);
             exit(0);
     }
 

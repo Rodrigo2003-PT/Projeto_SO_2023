@@ -52,9 +52,7 @@ void process_command(char *command) {
     char *token = strtok(command, " ");
 
     if (strcmp(token, "exit") == 0) {
-        pthread_cancel(console_thread);
-        pthread_cancel(console_receive);
-        exit(0);
+        kill(getpid(), SIGINT);
     } 
 
     else if (strcmp(token, "stats") == 0) {
@@ -166,7 +164,7 @@ void *receive_function(void *arg){
             kill(getpid(), SIGINT);
             break;
         }
-        printf("Alert received for sensor %s: value = %d\n", msg.sensor_id, msg.triggered_value);
+        printf("Alert received for sensor %s: value = %d\n", msg.key, msg.triggered_value);
     }
     return NULL;
 }
