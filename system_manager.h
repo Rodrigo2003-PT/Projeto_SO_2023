@@ -16,6 +16,7 @@
 
 pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
+pthread_cond_t cond_block = PTHREAD_COND_INITIALIZER;
 
 struct DispatcherArgs {
   int (*pipes)[2];

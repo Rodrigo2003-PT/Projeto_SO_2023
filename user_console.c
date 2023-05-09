@@ -2,7 +2,7 @@
 //Miguel Miranda 2021212100
 
 //TO-DO
-//Implementar a receive_function que recebe info da message_queue
+//FINISHED
 
 #include "user_console.h"
 
@@ -11,8 +11,16 @@ int msqid;
 
 int main(int argc, char **argv){
 
+    char *endptr;
+
     if (argc != 2) {
         printf("Usage: %s <console_id>\n", argv[0]);
+        exit(0);
+    }
+
+    long console_id = strtol(argv[1], &endptr, 10);
+    if (endptr == argv[1] || *endptr != '\0' || console_id <= 0) {
+        printf("console_id must be an integer value greater than 0\n");
         exit(0);
     }
 
@@ -146,7 +154,7 @@ void send_command(char *command) {
 
     if (write(pipe_fd, command, strlen(command)) == -1) {
         perror("write");
-        exit(1);
+        kill(getpid(), SIGINT);
     }
 }
 
@@ -166,7 +174,7 @@ void *receive_function(void *arg){
         queue_worker_msg worker_msg;
         
         if (msgrcv(msqid, &msg, sizeof(alert_msg)-sizeof(long), console_pid, 0) != -1) {
-            printf("Alert received for sensor %s: value = %d\n", msg.key, msg.triggered_value);
+            printf("alert received for key -> %s: value = %d\n", msg.key, msg.triggered_value);
         }
         else if (msgrcv(msqid, &worker_msg, sizeof(queue_worker_msg)-sizeof(long), console_pid, 0) != -1) {
             printf("%s",worker_msg.sendbuf);

@@ -2,7 +2,7 @@
 //Miguel Miranda 2021212100
 
 //TO-DO
-//Sincronizar sensor_thread
+//FINISHED
 
 #include "sensor_process.h"
 
@@ -40,7 +40,7 @@ int main(int argc, char *argv[]){
 
     if (interval < 0) {
         printf("Error: interval must be greater than or equal to 0\n");
-        return 1;
+        exit(1);
     }
 
     if (min >= max) {
@@ -52,35 +52,9 @@ int main(int argc, char *argv[]){
     signal(SIGINT, handle_sigint);
     signal(SIGTSTP, handle_sigtstp);
 
-    sensor_id sensor = {0};
-    strcpy(sensor.id,id_input);
-
-    // Set up sensor data
-    sensor_chave data_chave = {
-        .last_value = 0,
-        .min_value = min,
-        .max_value = max,
-        .count = 0,
-        .avg = -1,
-        .alerts = {{0}}
-    };
-
-    for (int i = 0; i < ALERTS_PER_SENSOR; i++) {
-        data_chave.alerts[i] = (sensor_alerts) {
-            .pid = -1, 
-            .alert_min = -1,
-            .alert_max = -1,
-            .alert_flag = 0,
-            .alert_id = ""
-        };
-    }
-
-    strcpy(data_chave.chave,key);
-    strcpy(data_chave.sensor,id_input);
-
     while (1) {
         value = min + rand() % (max - min + 1);
-        send_message(sensor.id, data_chave.chave, value);
+        send_message(id_input, key, value);
         sleep(interval);
     }
 
@@ -88,7 +62,7 @@ int main(int argc, char *argv[]){
 }
 
 void handle_sigtstp(int sig) {
-    printf("Sent %d messages\n", msg_sent);
+    printf("messages_sent: %d\n", msg_sent);
 }
 
 void handle_sigint(int sig) {

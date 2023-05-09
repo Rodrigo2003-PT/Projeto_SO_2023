@@ -2,7 +2,7 @@
 //Miguel Miranda 2021212100
 
 //TO-DO
-//Clean resources
+//FINISHED
 
 #include "system_manager.h"
 
@@ -258,11 +258,11 @@ void cleanup(int sig) {
   if (sem_close(worker_sem) == -1)printf("Error closing worker semaphore: %s\n", strerror(errno));
   if (sem_unlink(WORKER_SEM_NAME) == -1)printf("Error unlinking worker semaphore: %s\n", strerror(errno));
 
-  //Close processes
-  if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
-  for (int i = 0; i < config->num_workers; i++) {
-    if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
-  }
+  //CLOSE PROCESSES
+  // if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
+  // for (int i = 0; i < config->num_workers; i++) {
+  //   if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
+  // }
 
   free(configs);
   exit(0);
@@ -276,7 +276,6 @@ void *sensor_reader(void *arg){
     exit(0);
   }
 
-  // Do some work
   char buffer[MESSAGE_SIZE];
   struct Queue* queue = (struct Queue*) arg;
 
@@ -292,23 +291,20 @@ void *sensor_reader(void *arg){
           if (queue_size(queue) < config->queue_slot_number){
             pthread_mutex_lock(&queue_mutex);
             enqueue(queue,buffer);
-            pthread_cond_signal(&queue_cond);
             pthread_mutex_unlock(&queue_mutex);
+            pthread_cond_signal(&queue_cond);
           }
 
-          else{
-            printf("Internal queue is full! Discarding message!");
+          else
+          {
+            printf("Internal queue is full! Discarding message!\n");
+            print("Internal queue is full! Discarding message!\n");
           }
       } 
-      else {
-          perror("read");
-          // TODO: escrever no arquivo de log
-      }
   }
   return NULL;
 };
 
-// This thread needs to be synchronized
 void *console_reader(void *arg){
   
   // Opens the pipe for reading
@@ -329,23 +325,17 @@ void *console_reader(void *arg){
       ssize_t bytes_read = read(fd_2, buffer, MESSAGE_SIZE);
 
       if (bytes_read > 0) {
-          // Tenta inserir a mensagem na fila interna
-          if (queue_size(queue) < config->queue_slot_number){
-            pthread_mutex_lock(&queue_mutex);
-            enqueue(queue,buffer);
-            pthread_cond_signal(&queue_cond);
-            pthread_mutex_unlock(&queue_mutex);
-          }
-
-          else
-            printf("Internal queue is full! Discarding message!");
-      } 
-      else {
-          perror("read");
-          // TODO: escrever no arquivo de log
+        pthread_mutex_lock(&queue_mutex);
+        while (queue_size(queue) >= config->queue_slot_number) {
+          // The queue is full, so wait until there is space available
+          pthread_cond_wait(&cond_block, &queue_mutex);
+        }
+        enqueue(queue, buffer);
+        pthread_mutex_unlock(&queue_mutex);
+        pthread_cond_signal(&queue_cond);
       }
   }
-  return NULL;
+  return NULL; 
 };
 
 void *dispatcher_reader(void *arg){
@@ -366,7 +356,14 @@ void *dispatcher_reader(void *arg){
 
     char *msg = dequeue(queue);
     if (msg != NULL) printf("Message rcv by dispatcher: %s", msg);
-    pthread_mutex_unlock(&queue_mutex);
+
+    if (queue_size(queue) == (config->queue_slot_number - 1)) {
+      // Notify waiting threads that there is space available in the queue
+      pthread_mutex_unlock(&queue_mutex);
+      pthread_cond_signal(&cond_block);
+    }
+    else
+      pthread_mutex_unlock(&queue_mutex);
 
     // Find a free worker
     int free_worker = -1;
@@ -399,6 +396,7 @@ void *dispatcher_reader(void *arg){
       }
       sem_post(array_sem);
     }
+
     // Send the message to the worker
     close(pipes[free_worker][0]);
     int bytes_written = write(pipes[free_worker][1], msg, strlen(msg));
