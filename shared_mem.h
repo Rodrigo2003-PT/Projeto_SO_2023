@@ -58,6 +58,7 @@ typedef struct sensor_chave{
     int max_value;
     int last_value;
     char chave[MAX_KEY_SIZE];
+    char sensor[MAX_SENSOR_ID_SIZE];
     sensor_alerts alerts[ALERTS_PER_SENSOR];
 }sensor_chave;
 
@@ -70,6 +71,11 @@ typedef struct alert_msg {
     char key[MAX_KEY_SIZE];
     int triggered_value;
 } alert_msg;
+
+typedef struct queue_worker_msg {
+    long msgtype;
+    char sendbuf[MESSAGE_SIZE];
+} queue_worker_msg;
 
 typedef struct Node {
     char *command;

@@ -56,31 +56,38 @@ void process_command(char *command) {
     } 
 
     else if (strcmp(token, "stats") == 0) {
-        send_command("stats\n");
+        char buf[MAX_MSG_SIZE];
+        sprintf(buf, "stats %d\n",console_pid);
+        send_command(buf);
     } 
 
     else if (strcmp(token, "reset") == 0) {
-        send_command("reset\n");
+        char buf[MAX_MSG_SIZE];
+        sprintf(buf, "reset %d\n",console_pid);
+        send_command(buf);
     } 
 
     else if (strcmp(token, "sensors") == 0) {
-        send_command("sensors\n");
+        char buf[MAX_MSG_SIZE];
+        sprintf(buf, "sensors %d\n",console_pid);
+        send_command(buf);
     } 
 
     else if (strcmp(token, "add_alert") == 0) {
 
         char id[MAX_KEY_SIZE];
         char key[MAX_KEY_SIZE];
+        char sens[MAX_SENSOR_ID_SIZE];
         int min_val, max_val;
-        int num_scanned = sscanf(cmd_copy, "add_alert %s %s %d %d", id, key, &min_val, &max_val);
+        int num_scanned = sscanf(cmd_copy, "add_alert %s %s %s %d %d", id, sens, key, &min_val, &max_val);
 
-        if (num_scanned < 4) {
+        if (num_scanned < 5) {
             printf("Usage: add_alert [id] [key] [min] [max]\n");
         }
 
         else {
             char buf[MAX_MSG_SIZE];
-            sprintf(buf, "add_alert %d %s %s %d %d\n",console_pid, id, key, min_val, max_val);
+            sprintf(buf, "add_alert %d %s %s %s %d %d\n",console_pid, id, sens, key, min_val, max_val);
             send_command(buf);
         }
     } 
@@ -96,18 +103,20 @@ void process_command(char *command) {
         
         else{
             char buf[MAX_MSG_SIZE];
-            sprintf(buf, "remove_alert %s\n", id);       
+            sprintf(buf, "remove_alert %d %s\n",console_pid, id);       
             send_command(buf);
 
         }
     } 
 
     else if (strcmp(token, "list_alerts") == 0) {
-        send_command("list_alerts\n");
+        char buf[MAX_MSG_SIZE];
+        sprintf(buf, "list_alerts %d\n",console_pid);
+        send_command(buf);
     } 
     
     else {
-        printf("Invalid command.\n");
+        printf("Invalid command\n");
     }
 
     free(cmd_copy);
@@ -144,8 +153,6 @@ void send_command(char *command) {
 void *console_function(void *arg){
     while (1) {
         char command[MAX_MSG_SIZE];
-        printf("> ");
-        fflush(stdout);
         fgets(command, MAX_MSG_SIZE, stdin);
         command[strcspn(command, "\n")] = '\0';
         process_command(command);
@@ -156,12 +163,19 @@ void *console_function(void *arg){
 void *receive_function(void *arg){
     while(1) {
         alert_msg msg;
-        if (msgrcv(msqid, &msg, sizeof(alert_msg), console_pid, 0) == -1) {
+        queue_worker_msg worker_msg;
+        
+        if (msgrcv(msqid, &msg, sizeof(alert_msg)-sizeof(long), console_pid, 0) != -1) {
+            printf("Alert received for sensor %s: value = %d\n", msg.key, msg.triggered_value);
+        }
+        else if (msgrcv(msqid, &worker_msg, sizeof(queue_worker_msg)-sizeof(long), console_pid, 0) != -1) {
+            printf("%s",worker_msg.sendbuf);
+        }
+        else{
             printf("Error receiving message from message queue: %s\n", strerror(errno));
             kill(getpid(), SIGINT);
             break;
         }
-        printf("Alert received for sensor %s: value = %d\n", msg.key, msg.triggered_value);
     }
     return NULL;
 }

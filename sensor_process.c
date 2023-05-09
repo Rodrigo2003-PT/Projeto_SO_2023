@@ -76,6 +76,7 @@ int main(int argc, char *argv[]){
     }
 
     strcpy(data_chave.chave,key);
+    strcpy(data_chave.sensor,id_input);
 
     while (1) {
         value = min + rand() % (max - min + 1);

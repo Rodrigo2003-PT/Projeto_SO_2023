@@ -25,12 +25,13 @@ void worker_init(int* pipe_fd){
             if(strncmp(msg, "add_alert", strlen("add_alert")) == 0){
                 char id[MAX_KEY_SIZE];
                 char key[MAX_KEY_SIZE];
+                char sens[MAX_SENSOR_ID_SIZE];
                 int min_val, max_val;
                 pid_t console_pid;
-                if (sscanf(msg, "add_alert %d %s %s %d %d",&console_pid, id, key, &min_val, &max_val) == 5){
+                if (sscanf(msg, "add_alert %d %s %s %s %d %d",&console_pid, id, sens, key, &min_val, &max_val) == 6){
                     sem_wait(array_sem);
                     for (int i = 0; i < config->max_keys; i++) {
-                        if (strcmp(chave[i].chave, "") != 0 && strcmp(chave[i].chave, key) == 0) {
+                        if (strcmp(chave[i].sensor, sens) == 0 && strcmp(chave[i].chave, key) == 0) {
                             for (int j = 0; j < ALERTS_PER_SENSOR; j++){
                                  if (strcmp(chave[i].alerts[j].alert_id, "") == 0){
                                     chave[i].alerts[j].pid = console_pid;
@@ -38,22 +39,30 @@ void worker_init(int* pipe_fd){
                                     chave[i].alerts[j].alert_min = min_val;
                                     chave[i].alerts[j].alert_max = max_val;
                                     strcpy(chave[i].alerts[j].alert_id,id);
+                                    queue_worker_msg msg;
+                                    msg.msgtype = chave[i].alerts[j].pid;
+                                    strcpy(msg.sendbuf, "OK");
+                                    strcat(msg.sendbuf, "\n");
+                                    if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                                        perror("msgsnd failed");
                                     break;
                                  }
                             }
                         chave_exists = 1;
+                        printf("slot not available\n");
                         break;
                         }
                     }
                     if(!chave_exists){
-                        printf("Cannot add_alert to a non existing_chave\n");
+                        printf("Cannot add_alert to a non existing key/sensor match\n");
                     }
                 }
             }
 
             if(strncmp(msg,"remove_alert",strlen("remove_alert")) == 0){
                 char id[MAX_KEY_SIZE];
-                if(sscanf(msg,"remove_alert %s",id) == 1){
+                pid_t console_pid;
+                if(sscanf(msg,"remove_alert %d %s",&console_pid, id) == 2){
                     sem_wait(array_sem);
                     for (int i = 0; i < config->max_keys; i++) {
                         for (int j = 0; j < ALERTS_PER_SENSOR; j++){
@@ -63,27 +72,48 @@ void worker_init(int* pipe_fd){
                                 chave[i].alerts[j].alert_max = 0;
                                 chave[i].alerts[j].alert_flag = 0;
                                 strcpy(chave[i].alerts[j].alert_id,"");
-                                printf("alert_removed successfully\n");
+                                queue_worker_msg msg;
+                                msg.msgtype = console_pid;
+                                strcpy(msg.sendbuf, "OK");
+                                strcat(msg.sendbuf, "\n");
+                                if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                                    perror("msgsnd failed");
                                 chave_exists = 1;
+                                break;
                             }
                         }
+                        if(chave_exists) break;
                     }
                     if(!chave_exists){
-                        printf("Cannot remove_alert from a non existing_chave\n");
+                        printf("Cannot remove_alert\n");
                     }
                 }
             }
 
             if(strncmp(msg,"list_alerts",strlen("list_alerts")) == 0){
-                sem_wait(array_sem);
-                for (int i = 0; i < config->max_keys; i++) {
-                    if(strcmp(chave[i].chave, "") != 0){
-                        for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                            if (strcmp(chave[i].alerts[j].alert_id, "") != 0) { 
-                                printf("%s ",chave[i].alerts[j].alert_id);
-                                printf("%s ",chave[i].chave);
-                                printf("%d ",chave[i].alerts[j].alert_min);
-                                printf("%d \n",chave[i].alerts[j].alert_max);
+                char temp[20];
+                pid_t console_pid;
+                if(sscanf(msg, "list_alerts %d",&console_pid) == 1){
+                    sem_wait(array_sem);
+                    for (int i = 0; i < config->max_keys; i++){
+                        if(strcmp(chave[i].chave, "") != 0){
+                            for (int j = 0; j < ALERTS_PER_SENSOR; j++){
+                                if (strcmp(chave[i].alerts[j].alert_id, "") != 0) {
+                                    queue_worker_msg msg;
+                                    msg.msgtype = console_pid;
+                                    strcpy(msg.sendbuf, chave[i].alerts[j].alert_id);
+                                    strcat(msg.sendbuf, " ");
+                                    strcat(msg.sendbuf,chave[i].chave);
+                                    strcat(msg.sendbuf, " ");
+                                    sprintf(temp, "%d", chave[i].alerts[j].alert_min);
+                                    strcat(msg.sendbuf, temp);
+                                    strcat(msg.sendbuf, " ");
+                                    sprintf(temp, "%d", chave[i].alerts[j].alert_max);
+                                    strcat(msg.sendbuf, temp);
+                                    strcat(msg.sendbuf, "\n");
+                                    if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                                        perror("msgsnd failed");
+                                }
                             }
                         }
                     }
@@ -91,37 +121,76 @@ void worker_init(int* pipe_fd){
             }
 
             if(strncmp(msg,"sensors",strlen("sensors")) == 0){
-                sem_wait(array_sem);
-                for(int i = 0; i < config->max_sensors; i++){
-                    if(strcmp(sensor[i].id, "") != 0) printf("%s\n",sensor[i].id);
+                pid_t console_pid;
+                if(sscanf(msg, "sensors %d",&console_pid) == 1){
+                    sem_wait(array_sem);
+                    for(int i = 0; i < config->max_sensors; i++){
+                        if(strcmp(sensor[i].id, "") != 0){
+                            queue_worker_msg msg;
+                            msg.msgtype = console_pid;
+                            strcpy(msg.sendbuf, sensor[i].id);
+                            strcat(msg.sendbuf, "\n");
+                            if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                                perror("msgsnd failed");
+                        }
+                    }
                 }
             }
 
             if(strncmp(msg,"stats",strlen("stats")) == 0){
-                sem_wait(array_sem);
-                for(int i = 0; i < config->max_keys; i++){
-                    if(strcmp(chave[i].chave, "") != 0){
-                        printf("%s ",chave[i].chave);
-                        printf("%d ",chave[i].last_value);
-                        printf("%d ",chave[i].min_value);
-                        printf("%d ",chave[i].max_value);
-                        printf("%f ",chave[i].avg);
-                        printf("%d \n",chave[i].count);
+                pid_t console_pid;
+                char temp[20];
+                if(sscanf(msg, "stats %d",&console_pid) == 1){
+                    sem_wait(array_sem);
+                    for(int i = 0; i < config->max_keys; i++){
+                        if(strcmp(chave[i].chave, "") != 0){
+                            queue_worker_msg msg;
+                            msg.msgtype = console_pid;
+                            strcpy(msg.sendbuf, chave[i].chave);
+                            strcat(msg.sendbuf, " ");
+                            sprintf(temp, "%d", chave[i].last_value);
+                            strcat(msg.sendbuf, temp);
+                            strcat(msg.sendbuf, " ");
+                            sprintf(temp, "%d", chave[i].min_value);
+                            strcat(msg.sendbuf, temp);
+                            strcat(msg.sendbuf, " ");
+                            sprintf(temp, "%d", chave[i].max_value);
+                            strcat(msg.sendbuf, temp);
+                            strcat(msg.sendbuf, " ");
+                            sprintf(temp, "%lf", chave[i].avg);
+                            strcat(msg.sendbuf, temp);
+                            strcat(msg.sendbuf, " ");
+                            sprintf(temp, "%d", chave[i].count);
+                            strcat(msg.sendbuf, temp);
+                            strcat(msg.sendbuf, "\n");
+                            if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                                perror("msgsnd failed");
+                        }
                     }
                 }
             }
 
             if(strncmp(msg,"reset",strlen("reset")) == 0){
-                sem_wait(array_sem);
-                for(int i = 0; i < config->max_keys; i++){
-                    if(strcmp(chave[i].chave, "") != 0){
-                        strcpy(chave[i].chave, "");
-                        chave[i].last_value = -999;
-                        chave[i].min_value = -999;
-                        chave[i].max_value = 999;
-                        chave[i].avg = -999;
-                        chave[i].count = 0;
+                pid_t console_pid;
+                if(sscanf(msg, "reset %d",&console_pid) == 1){
+                    sem_wait(array_sem);
+                    for(int i = 0; i < config->max_keys; i++){
+                        if(strcmp(chave[i].chave, "") != 0){
+                            strcpy(chave[i].sensor,"");
+                            strcpy(chave[i].chave, "");
+                            chave[i].last_value = -999;
+                            chave[i].min_value = -999;
+                            chave[i].max_value = 999;
+                            chave[i].avg = -999;
+                            chave[i].count = 0;
+                        }
                     }
+                    queue_worker_msg msg;
+                    msg.msgtype = console_pid;
+                    strcpy(msg.sendbuf, "OK");
+                    strcat(msg.sendbuf, "\n");
+                    if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                        perror("msgsnd failed");
                 }
             }
         }
@@ -139,7 +208,7 @@ void worker_init(int* pipe_fd){
                             // sensor já comunicou com o sistema
                             sensor_exists = 1;
                             for(int j = 0; j < config->max_keys; j++){
-                                if(strcmp(chave[j].chave, "") != 0 && strcmp(chave[j].chave,ws.chave) == 0){
+                                if(strcmp(chave[j].sensor,ws.id) == 0 && strcmp(chave[j].chave,ws.chave) == 0){
                                     //chave enviada existe no sistema -> atualização
                                     chave[j].last_value = ws.value;
                                     if(ws.value < chave[j].min_value)chave[j].min_value = ws.value;
@@ -157,6 +226,7 @@ void worker_init(int* pipe_fd){
                                 for(int j = 0; j < config->max_keys; j++){
                                     if(strcmp(chave[j].chave, "") == 0){
                                         //chave slot available
+                                        strcpy(chave[j].sensor,ws.id);
                                         strcpy(chave[j].chave,ws.chave);
                                         chave[j].last_value = ws.value;
                                         chave[j].min_value = ws.value;
@@ -191,6 +261,7 @@ void worker_init(int* pipe_fd){
                     for(int j = 0; j < config->max_keys; j++){
                         if(strcmp(chave[j].chave, "") == 0){
                             //chave slot available
+                            strcpy(chave[j].sensor,ws.id);
                             strcpy(chave[j].chave,ws.chave);
                             chave[j].last_value = ws.value;
                             chave[j].min_value = ws.value;

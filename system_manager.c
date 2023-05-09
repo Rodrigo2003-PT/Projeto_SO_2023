@@ -112,6 +112,7 @@ void init_program(){
   for (int i = 0; i < config->max_keys; i++) {
     chave[i] = (sensor_chave) {
       .chave = "",
+      .sensor = "",
       .last_value = -999,
       .min_value = -999,
       .max_value = 999,

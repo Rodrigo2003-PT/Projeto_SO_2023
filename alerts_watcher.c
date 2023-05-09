@@ -15,7 +15,7 @@ void alerts_watcher_init(){
                         msg.mtype = chave[i].alerts[j].pid;
                         strcpy(msg.key, chave[i].chave);
                         msg.triggered_value = chave[i].last_value;
-                        if (msgsnd(msq_id, &msg, sizeof(alert_msg), 0) == -1)
+                        if (msgsnd(msq_id, &msg, sizeof(alert_msg)-sizeof(long), 0) == -1)
                             perror("msgsnd failed");
                         char buf[MESSAGE_SIZE];
                         sprintf(buf,"Alert triggered for sensor %s: value = %d\n", msg.key, msg.triggered_value);
