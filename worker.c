@@ -300,7 +300,7 @@ void worker_init(int* pipe_fd){
         for (int i = 0; i < config->num_workers; i++) {
             int worker_state = *(first_worker + i);
             if (worker_state == 0) {
-                worker_state = 1;
+                *(first_worker + i) = 1;
                 sprintf(buf_state, "WORKER %d AVAILABLE\n",i);
                 print(buf_state);
                 break;

@@ -147,7 +147,7 @@ void init_program(){
   }
 
   sem_unlink(WORKER_SEM_NAME);
-  worker_sem = sem_open(WORKER_SEM_NAME, O_CREAT | O_EXCL, 0666, 0);
+  worker_sem = sem_open(WORKER_SEM_NAME, O_CREAT | O_EXCL, 0666, config->num_workers);
   if (worker_sem == SEM_FAILED) {
       perror("sem_open");
       exit(1);
@@ -226,6 +226,16 @@ void create_msq(){
 void cleanup(int sig) {
   print("SIGINT SIGNALED\n");
   print("SYSTEM EXITING\n");
+
+  // Wait for workers to finish 
+  while (1) {
+    sem_wait(worker_sem);
+    int sem_val;
+    sem_getvalue(worker_sem, &sem_val);
+    if (sem_val == config->num_workers) {
+        break;
+    }
+  }
   
   running = 0;
   
@@ -255,13 +265,13 @@ void cleanup(int sig) {
   if (unlink(PIPENAME_2) == -1)print("ERROR UNLINKING PIPE PIPENAME_2\n");
 
   //Close log file and destroy semaphore
-  if (fclose(log_file) == EOF)print("ERROR CLOSING LOG FILE\n");
   if (sem_close(log_semaphore) == -1)print("ERROR CLOSING LOG_SEMAPHORE\n");
   if (sem_unlink(LOG_SEM_NAME) == -1)print("ERROR UNLINKING LOG_SEMAPHORE\n");
   if (sem_close(array_sem) == -1)print("ERROR CLOSING ARRAY_SEMAPHORE\n");
   if (sem_unlink(ARRAY_SEM_NAME) == -1)print("ERROR UNLINKING ARRAY_SEMAPHORE\n");
   if (sem_close(worker_sem) == -1)print("ERROR CLOSING WORKER_SEMAPHORE\n");
   if (sem_unlink(WORKER_SEM_NAME) == -1)print("ERROR UNLINKING WORKER_SEMAPHORE\n");
+  if (fclose(log_file) == EOF)print("ERROR CLOSING LOG FILE\n");
 
   //CLOSE PROCESSES
   // if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
@@ -343,8 +353,6 @@ void *console_reader(void *arg){
 };
 
 void *dispatcher_reader(void *arg){
-
-  int first_time = 1;
   char buf_state[256];
 
   struct DispatcherArgs *args = (struct DispatcherArgs*) arg;
@@ -369,41 +377,21 @@ void *dispatcher_reader(void *arg){
     else
       pthread_mutex_unlock(&queue_mutex);
 
-    // Find a free worker
     int free_worker = -1;
-
-    if(first_time == 1){
-      sem_wait(array_sem);
-      for (int i = 0; i < config->num_workers; i++) {
-        int worker_state = *(first_worker + i);
-        if (worker_state == 1) {
-          free_worker = i;
-          worker_state = 0;
-          sprintf(buf_state, "WORKER %d BUSY\n",i);
-          print(buf_state);
-          first_time++;
-          break;
-        }
-      }
-      sem_post(array_sem);
-    }
-
     // Wait for one to become available
-    if (free_worker == -1){
-      sem_wait(worker_sem);
-      sem_wait(array_sem);
-      for (int i = 0; i < config->num_workers; i++) {
-        int worker_state = *(first_worker + i);
-        if (worker_state == 1) {
-          free_worker = i;
-          worker_state = 0;
-          sprintf(buf_state, "WORKER %d BUSY\n",i);
-          print(buf_state);
-          break;
-        }
+    sem_wait(worker_sem);
+    sem_wait(array_sem);
+    for (int i = 0; i < config->num_workers; i++) {
+      int worker_state = *(first_worker + i);
+      if (worker_state == 1) {
+        free_worker = i;
+        *(first_worker + i) = 0;
+        sprintf(buf_state, "WORKER %d BUSY\n",i);
+        print(buf_state);
+        break;
       }
-      sem_post(array_sem);
     }
+    sem_post(array_sem);
 
     // Send the message to the worker
     close(pipes[free_worker][0]);
