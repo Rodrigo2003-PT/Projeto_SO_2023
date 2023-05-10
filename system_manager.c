@@ -77,13 +77,8 @@ int main(){
   }
 
   signal(SIGINT, cleanup);
-  
-  pthread_join(console_reader_thread, NULL);
-  pthread_join(dispatcher_thread, NULL);
-  pthread_join(sensor_reader_thread, NULL);
 
-  wait_alerts_watcher();
-  wait_workers();
+  wait(NULL);
 }
 
 void init_program(){
@@ -226,22 +221,19 @@ void create_msq(){
 void cleanup(int sig) {
   print("SIGINT SIGNALED\n");
   print("SYSTEM EXITING\n");
-
-  // Wait for workers to finish 
-  while (1) {
-    sem_wait(worker_sem);
-    int sem_val;
-    sem_getvalue(worker_sem, &sem_val);
-    if (sem_val == config->num_workers) {
-        break;
-    }
-  }
-  
   running = 0;
-  
-  if (remove(MSQ_FILE) != 0) {
-      print("ERROR DELETING FILE -> MSG_QUEUE_ID\n");
+
+
+  //CLOSE PROCESSES
+  if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
+  for (int i = 0; i < config->num_workers; i++) {
+    if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
   }
+
+  //Terminate Threads
+  pthread_cancel(dispatcher_thread);
+  pthread_cancel(sensor_reader_thread);
+  pthread_cancel(console_reader_thread);
 
   write_Queue(queue);
   destroyQueue(queue);
@@ -263,6 +255,10 @@ void cleanup(int sig) {
     if (close(fd_2) == -1)print("ERROR CLOSING PIPE FD2\n");
   }
   if (unlink(PIPENAME_2) == -1)print("ERROR UNLINKING PIPE PIPENAME_2\n");
+    
+  if (remove(MSQ_FILE) != 0) {
+      print("ERROR DELETING FILE -> MSG_QUEUE_ID\n");
+  }
 
   //Close log file and destroy semaphore
   if (sem_close(log_semaphore) == -1)print("ERROR CLOSING LOG_SEMAPHORE\n");
@@ -272,12 +268,6 @@ void cleanup(int sig) {
   if (sem_close(worker_sem) == -1)print("ERROR CLOSING WORKER_SEMAPHORE\n");
   if (sem_unlink(WORKER_SEM_NAME) == -1)print("ERROR UNLINKING WORKER_SEMAPHORE\n");
   if (fclose(log_file) == EOF)print("ERROR CLOSING LOG FILE\n");
-
-  //CLOSE PROCESSES
-  // if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
-  // for (int i = 0; i < config->num_workers; i++) {
-  //   if (worker_pid[i] > 0) kill(worker_pid[i], SIGTERM);
-  // }
 
   free(configs);
   exit(0);
@@ -342,7 +332,10 @@ void *console_reader(void *arg){
         pthread_mutex_lock(&queue_mutex);
         while (queue_size(queue) >= config->queue_slot_number) {
           // The queue is full, so wait until there is space available
-          pthread_cond_wait(&cond_block, &queue_mutex);
+          int ret = pthread_cond_wait(&cond_block, &queue_mutex);
+          if (ret == EINTR) {
+              pthread_exit(NULL);
+          }
         }
         enqueue(queue, buffer);
         pthread_mutex_unlock(&queue_mutex);
@@ -364,7 +357,10 @@ void *dispatcher_reader(void *arg){
     // Check if there are messages in the queue
     pthread_mutex_lock(&queue_mutex);
     while (isEmpty(queue)) {
-      pthread_cond_wait(&queue_cond, &queue_mutex);
+      int ret = pthread_cond_wait(&queue_cond, &queue_mutex);
+      if (ret == EINTR) {
+          pthread_exit(NULL);
+      }
     }
 
     char *msg = dequeue(queue);
