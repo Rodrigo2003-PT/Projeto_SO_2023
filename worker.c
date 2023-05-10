@@ -15,47 +15,58 @@ void worker_init(int* pipe_fd){
         sensor_exists = 0;
         chave_exists = 0;
         count_sensors = 0;
+        char buf_state[256];
         close(pipe_fd[1]);
         char *msg = read_from_pipe(pipe_fd[0]);
-        printf("Worker message: %s\n", msg);
         char *result = strchr(msg, '#');
         
         // Se a mensagem for um dado da user_console
         if(result == NULL){
             if(strncmp(msg, "add_alert", strlen("add_alert")) == 0){
-                char id[MAX_KEY_SIZE];
-                char key[MAX_KEY_SIZE];
-                char sens[MAX_SENSOR_ID_SIZE];
-                int min_val, max_val;
-                pid_t console_pid;
-                if (sscanf(msg, "add_alert %d %s %s %s %d %d",&console_pid, id, sens, key, &min_val, &max_val) == 6){
-                    sem_wait(array_sem);
-                    for (int i = 0; i < config->max_keys; i++) {
-                        if (strcmp(chave[i].sensor, sens) == 0 && strcmp(chave[i].chave, key) == 0) {
-                            for (int j = 0; j < ALERTS_PER_SENSOR; j++){
-                                 if (strcmp(chave[i].alerts[j].alert_id, "") == 0){
-                                    chave[i].alerts[j].pid = console_pid;
-                                    chave[i].alerts[j].alert_flag = 1;
-                                    chave[i].alerts[j].alert_min = min_val;
-                                    chave[i].alerts[j].alert_max = max_val;
-                                    strcpy(chave[i].alerts[j].alert_id,id);
-                                    queue_worker_msg msg;
-                                    msg.msgtype = chave[i].alerts[j].pid;
-                                    strcpy(msg.sendbuf, "OK");
-                                    strcat(msg.sendbuf, "\n");
-                                    if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
-                                        perror("msgsnd failed");
-                                    break;
-                                 }
+                if(count_alerts < config->max_alerts){
+                    char id[MAX_KEY_SIZE];
+                    char key[MAX_KEY_SIZE];
+                    char sens[MAX_SENSOR_ID_SIZE];
+                    int min_val, max_val;
+                    pid_t console_pid;
+                    if (sscanf(msg, "add_alert %d %s %s %s %d %d",&console_pid, id, sens, key, &min_val, &max_val) == 6){
+                        sem_wait(array_sem);
+                        for (int i = 0; i < config->max_keys; i++) {
+                            if (strcmp(chave[i].sensor, sens) == 0 && strcmp(chave[i].chave, key) == 0) {
+                                for (int j = 0; j < ALERTS_PER_SENSOR; j++){
+                                    if(strcmp(chave[i].alerts[j].alert_id, id) != 0){
+                                        if (strcmp(chave[i].alerts[j].alert_id, "") == 0){
+                                            chave[i].alerts[j].pid = console_pid;
+                                            chave[i].alerts[j].alert_flag = 1;
+                                            chave[i].alerts[j].alert_min = min_val;
+                                            chave[i].alerts[j].alert_max = max_val;
+                                            strcpy(chave[i].alerts[j].alert_id,id);
+                                            count_alerts++;
+                                            queue_worker_msg msg;
+                                            msg.msgtype = chave[i].alerts[j].pid;
+                                            strcpy(msg.sendbuf, "OK");
+                                            strcat(msg.sendbuf, "\n");
+                                            if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
+                                                print("WORKER - ADD_ALERT -> FAILED SENDING TO MSG_QUEUE\n");
+                                            break;
+                                        }
+                                    }
+                                    else{
+                                        print("ERROR -> DUPLICATE ALERTS ID'S\n");
+                                        break;
+                                    }
+                                }
+                            chave_exists = 1;
+                            break;
                             }
-                        chave_exists = 1;
-                        printf("slot not available\n");
-                        break;
+                        }
+                        if(!chave_exists){
+                            print("CANNOT ADD_ALERT TO NON_EXISTING SENSOR/KEY MATCH\n");
                         }
                     }
-                    if(!chave_exists){
-                        printf("Cannot add_alert to a non existing key/sensor match\n");
-                    }
+                }
+                else{
+                    print("MAX NUMBER OF ALERTS REACHED\n");
                 }
             }
 
@@ -72,12 +83,13 @@ void worker_init(int* pipe_fd){
                                 chave[i].alerts[j].alert_max = 0;
                                 chave[i].alerts[j].alert_flag = 0;
                                 strcpy(chave[i].alerts[j].alert_id,"");
+                                count_alerts--;
                                 queue_worker_msg msg;
                                 msg.msgtype = console_pid;
                                 strcpy(msg.sendbuf, "OK");
                                 strcat(msg.sendbuf, "\n");
                                 if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
-                                    perror("msgsnd failed");
+                                    print("WORKER - REMOVE_ALERT -> FAILED SENDING TO MSG_QUEUE\n");
                                 chave_exists = 1;
                                 break;
                             }
@@ -85,7 +97,7 @@ void worker_init(int* pipe_fd){
                         if(chave_exists) break;
                     }
                     if(!chave_exists){
-                        printf("Cannot remove_alert\n");
+                        print("CANNOT REMOVE ALERT\n");
                     }
                 }
             }
@@ -112,7 +124,7 @@ void worker_init(int* pipe_fd){
                                     strcat(msg.sendbuf, temp);
                                     strcat(msg.sendbuf, "\n");
                                     if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
-                                        perror("msgsnd failed");
+                                        print("WORKER - LIST_ALERTS -> FAILED SENDING TO MSG_QUEUE\n");
                                 }
                             }
                         }
@@ -131,7 +143,7 @@ void worker_init(int* pipe_fd){
                             strcpy(msg.sendbuf, sensor[i].id);
                             strcat(msg.sendbuf, "\n");
                             if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
-                                perror("msgsnd failed");
+                                print("WORKER - SENSORS -> FAILED SENDING TO MSG_QUEUE\n");
                         }
                     }
                 }
@@ -164,7 +176,7 @@ void worker_init(int* pipe_fd){
                             strcat(msg.sendbuf, temp);
                             strcat(msg.sendbuf, "\n");
                             if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
-                                perror("msgsnd failed");
+                                print("WORKER - STATS -> FAILED SENDING TO MSG_QUEUE\n");
                         }
                     }
                 }
@@ -190,7 +202,7 @@ void worker_init(int* pipe_fd){
                     strcpy(msg.sendbuf, "OK");
                     strcat(msg.sendbuf, "\n");
                     if (msgsnd(msq_id, &msg, sizeof(queue_worker_msg)-sizeof(long), 0) == -1)
-                        perror("msgsnd failed");
+                        print("WORKER - RESET -> FAILED SENDING TO MSG_QUEUE\n");
                 }
             }
         }
@@ -198,31 +210,31 @@ void worker_init(int* pipe_fd){
         // Se a mensagem for um dado do sensor
         else{
             worker_sensor ws = create_worker_sensor(msg);
-            if(count_key != config->max_keys){
-                // Search for the sensor structure with the given key
-                sem_wait(array_sem);
-                for(int i = 0; i < config->max_sensors; i++){
-                    if(strcmp(sensor[i].id, "") != 0){
-                        count_sensors++;
-                        if(strcmp(sensor[i].id,ws.id) == 0){
-                            // sensor já comunicou com o sistema
-                            sensor_exists = 1;
-                            for(int j = 0; j < config->max_keys; j++){
-                                if(strcmp(chave[j].sensor,ws.id) == 0 && strcmp(chave[j].chave,ws.chave) == 0){
-                                    //chave enviada existe no sistema -> atualização
-                                    chave[j].last_value = ws.value;
-                                    if(ws.value < chave[j].min_value)chave[j].min_value = ws.value;
-                                    if(ws.value > chave[j].max_value)chave[j].max_value = ws.value;
-                                    chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
-                                    chave[j].count++;
-                                    
-                                    free(ws.id);
-                                    free(ws.chave);
-                                    chave_exists = 1;
-                                    break;
-                                }
+            // Search for the sensor structure with the given key
+            sem_wait(array_sem);
+            for(int i = 0; i < config->max_sensors; i++){
+                if(strcmp(sensor[i].id, "") != 0){
+                    count_sensors++;
+                    if(strcmp(sensor[i].id,ws.id) == 0){
+                        // sensor já comunicou com o sistema
+                        sensor_exists = 1;
+                        for(int j = 0; j < config->max_keys; j++){
+                            if(strcmp(chave[j].sensor,ws.id) == 0 && strcmp(chave[j].chave,ws.chave) == 0){
+                                //chave enviada existe no sistema -> atualização
+                                chave[j].last_value = ws.value;
+                                if(ws.value < chave[j].min_value)chave[j].min_value = ws.value;
+                                if(ws.value > chave[j].max_value)chave[j].max_value = ws.value;
+                                chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
+                                chave[j].count++;
+                                
+                                free(ws.id);
+                                free(ws.chave);
+                                chave_exists = 1;
+                                break;
                             }
-                            if(!chave_exists){
+                        }
+                        if(!chave_exists){
+                            if(count_key < config->max_keys){
                                 for(int j = 0; j < config->max_keys; j++){
                                     if(strcmp(chave[j].chave, "") == 0){
                                         //chave slot available
@@ -241,23 +253,27 @@ void worker_init(int* pipe_fd){
                                     }
                                 }
                             }
+                            else{
+                                print("ERROR -> Nº MAXIMO DE CHAVES ATINGIDO! MENSAGEM DESCARTADA!\n");
+                            }
                         }
                     }
                 }
-                if(count_sensors == config->max_sensors){
-                    printf("Error: maximum number of sensors reached\n");
-                    printf("Mensagem descartada\n");
-                }
-                else if(!sensor_exists){
-                    // comunicação proveniente de um novo sensor
-                    for(int i = 0; i < config->max_sensors; i++){
-                        // adicionar novo sensor ao sistema
-                        if(strcmp(sensor[i].id, "") == 0){
-                            strcpy(sensor[i].id, ws.id);
-                            break;
-                        }
+            }
+            if(count_sensors == config->max_sensors){
+                print("ERROR -> Nº MAXIMO DE SENSORES ATINGIDO! MENSAGEM DESCARTADA!\n");
+            }
+            else if(!sensor_exists){
+                // comunicação proveniente de um novo sensor
+                for(int i = 0; i < config->max_sensors; i++){
+                    // adicionar novo sensor ao sistema
+                    if(strcmp(sensor[i].id, "") == 0){
+                        strcpy(sensor[i].id, ws.id);
+                        break;
                     }
-                    // adicionar chave num slot disponivel
+                }
+                // adicionar chave num slot disponivel
+                if(count_key < config->max_keys){
                     for(int j = 0; j < config->max_keys; j++){
                         if(strcmp(chave[j].chave, "") == 0){
                             //chave slot available
@@ -275,9 +291,9 @@ void worker_init(int* pipe_fd){
                         }
                     }
                 }
-            }
-            else{
-                printf("Mensagem descartada");
+                else{
+                    print("ERROR -> Nº MAXIMO DE CHAVES ATINGIDO! MENSAGEM DESCARTADA!\n");
+                }
             }
         }
 
@@ -285,12 +301,15 @@ void worker_init(int* pipe_fd){
             int worker_state = *(first_worker + i);
             if (worker_state == 0) {
                 worker_state = 1;
+                sprintf(buf_state, "WORKER %d AVAILABLE\n",i);
+                print(buf_state);
                 break;
             }
         }
         sem_post(array_sem);
         sem_post(alerts_sem);
         sem_post(worker_sem);  
+        memset(buf_state, 0, 256);
     }
 }
 

@@ -220,6 +220,22 @@ void printQueue(struct Queue* queue) {
     }
 }
 
+void write_Queue(struct Queue* queue) {
+    char buf[MESSAGE_SIZE];
+    if (isEmpty(queue)) {
+        print("No tasks waiting to execute in internal queue\n");
+        return;
+    }
+    struct Node* current = queue->front;
+    print("Queue contents:\n");
+    while (current != NULL) {
+        memset(buf, 0, MESSAGE_SIZE); 
+        strcpy(buf,current->command);
+        print(buf);
+        current = current->next;
+    }
+}
+
 void destroyQueue(struct Queue* queue) {
     struct Node* current = queue->front;
     while (current != NULL) {

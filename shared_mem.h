@@ -110,6 +110,7 @@ sem_t *log_semaphore;
 sensor_chave *chave;
 sensor_id *sensor;
 int *first_worker;
+int count_alerts;
 int count_key;
 
 //Processes PIDS

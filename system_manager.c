@@ -12,6 +12,7 @@ int *configs = NULL;
 
 int main(){
   running = 1;
+  count_alerts = 0;
 
   //Ignora o sinal SIG_INT e SIGTSTP até fazer todas as inicializações
   signal(SIGINT, SIG_IGN);
@@ -21,14 +22,15 @@ int main(){
   //read config file
   configs = read_config_file();
   if (configs == NULL){
-    printf("Error reading config file");
-    print("Error reading config file");
+    printf("ERROR READING CONFIG FILE\n");
   } 
   process_config_file(configs);
 
   init_log();
 
   init_program();
+
+  print("SYSTEM STARTING\n");
 
   int pipes[config->num_workers][2];
   create_unnamed_pipes(pipes);
@@ -45,6 +47,8 @@ int main(){
     exit(0);
   }
 
+  print("ALERTS_WATCHER CREATED\n");
+
   worker_pid = (pid_t*) malloc(config->num_workers * sizeof(pid_t));
   for(int i = 0; i < config->num_workers; i++){
     worker_pid[i] = fork();
@@ -54,19 +58,21 @@ int main(){
     }
   }
 
+  print("WORKERS CREATED\n");
+
   // Create threads
   if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue) != 0) {
-    perror("Cannot create console thread: ");
+    print("CANNOT CREATE CONSOLE_THREAD\n");
     exit(1);
   }
   
   if (pthread_create(&dispatcher_thread, NULL, dispatcher_reader, (void*) &dispatcher_args) != 0) {
-    perror("Cannot create console thread: ");
+    print("CANNOT CREATE DISPATCHER_THREAD\n");
     exit(1);
   }
 
   if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue) != 0) {
-    perror("Cannot create sensor thread: ");
+    print("CANNOT CREATE SENSOR_THREAD\n");
     exit(1);
   }
 
@@ -86,12 +92,12 @@ void init_program(){
   // shared_mem size incomplete
   int shared_mem_size = (sizeof(sensor_id) * config->max_sensors) + (sizeof(int) * config->num_workers) + sizeof(int) + (sizeof(sensor_chave) * config->max_keys);
   if ((shm_id = shmget(IPC_PRIVATE, shared_mem_size, IPC_CREAT | IPC_EXCL | 0700)) < 1){
-    print("Error in shmget with IPC_CREAT\n");
+    print("ERROR IN SHMGET WITH IPC_CREAT\n");
     exit(1);
   }
 
   if((sensor = (sensor_id*) shmat(shm_id, NULL, 0)) == (sensor_id*)-1){
-      print("Error attaching shared memory in process");
+      print("ERROR ATTACHING SHARED MEMORY\n");
       exit(0);
   }
 
@@ -107,6 +113,8 @@ void init_program(){
   for (int i = 0; i < config->num_workers; i++) {
     *(first_worker + i) = 1;
   }
+
+  count_key = 0;
 
   //Initialize all chaves
   for (int i = 0; i < config->max_keys; i++) {
@@ -171,10 +179,9 @@ void wait_workers(){
     if (waitpid(worker_pid[i], &status, 0) == -1) {
         perror("waitpid");
     }
-    printf("Worker process %d terminated with status %d\n", worker_pid[i], status);
   }
   free(worker_pid);
-  print("Worker processes terminated");
+  print("WORKERS TERMINATED\n");
 }
 
 void wait_alerts_watcher(){
@@ -182,14 +189,12 @@ void wait_alerts_watcher(){
   if (waitpid(alerts_watcher_process, &status, 0) == -1) {
     perror("waitpid");
   }
-  printf("Alerts watcher process %d terminated with status %d\n", alerts_watcher_process, status);
-  print("Alerts_Watcher process terminated");
+  print("ALERTS_WATCHER TERMINATED\n");
 }
 
 void create_unnamed_pipes(int pipes[][2]){
   for (int i = 0; i < config->num_workers; i++) {
         if (pipe(pipes[i]) == -1) {
-          printf("CANNOT CREATE UNNAMED PIPE -> EXITING\n");
           print("CANNOT CREATE UNNAMED PIPE -> EXITING\n");
           exit(1);
         }
@@ -199,7 +204,6 @@ void create_unnamed_pipes(int pipes[][2]){
 void create_named_pipe(char *name){
   unlink(name);
   if ((mkfifo(name, O_CREAT|O_EXCL|0600)<0) && (errno != EEXIST)){
-    printf("CANNOT CREATE NAMED PIPE -> EXITING\n");
     print("CANNOT CREATE NAMED PIPE -> EXITING\n");
     exit(1);
   }
@@ -207,13 +211,12 @@ void create_named_pipe(char *name){
 
 void create_msq(){
   if((msq_id = msgget(IPC_PRIVATE, IPC_CREAT|0777)) == -1){
-    printf("Error creating message queue");
-    print("Error creating message queue");
+    print("ERROR CREATING MSG QUEUE\n");
     exit(1);
   }
   FILE *fp = fopen(MSQ_FILE, "w");
   if (fp == NULL) {
-    printf("Error opening file\n");
+    print("ERROR OPENING FILE -> MSG_QUEUE_ID\n");
     exit(1);
   }
   fprintf(fp, "%d", msq_id);
@@ -221,42 +224,44 @@ void create_msq(){
 }
 
 void cleanup(int sig) {
-
-  printf("System terminating...\n");
+  print("SIGINT SIGNALED\n");
+  print("SYSTEM EXITING\n");
+  
   running = 0;
   
   if (remove(MSQ_FILE) != 0) {
-      perror("Error deleting file");
+      print("ERROR DELETING FILE -> MSG_QUEUE_ID\n");
   }
 
+  write_Queue(queue);
   destroyQueue(queue);
 
   //Detach/delete shared memory
-  if (shmdt(sensor) == -1)printf("Error detaching shared memory segment: %s\n", strerror(errno));
-  if(shmctl(shm_id, IPC_RMID, NULL) == -1)printf("Error removing shared memory segment: %s\n", strerror(errno));
+  if (shmdt(sensor) == -1)print("ERROR DETACHING SHM SEGMENT\n");
+  if(shmctl(shm_id, IPC_RMID, NULL) == -1)print("ERROR REMOVING SHM SEGMENT\n");
 
   //Delete message queue
-  if (msgctl(msq_id, IPC_RMID, NULL) == -1)printf("Error deleting message queue: %s\n", strerror(errno));
+  if (msgctl(msq_id, IPC_RMID, NULL) == -1)print("ERROR DELETING MSG_QUEUE\n");
 
   //Close and unlink named pipes
   if (fcntl(fd_1, F_GETFL) != -1) {
-    if (close(fd_1) == -1)printf("Error closing pipe fd1: %s\n", strerror(errno));
+    if (close(fd_1) == -1)print("ERROR CLOSING PIPE FD1\n");
   }
-  if (unlink(PIPENAME_1) == -1)printf("Error unlinking pipe PIPENAME_1: %s\n", strerror(errno));
+  if (unlink(PIPENAME_1) == -1)print("ERROR UNLINKING PIPE PIPENAME_1\n");
 
   if (fcntl(fd_2, F_GETFL) != -1) {
-    if (close(fd_2) == -1)printf("Error closing pipe fd2: %s\n", strerror(errno));
+    if (close(fd_2) == -1)print("ERROR CLOSING PIPE FD2\n");
   }
-  if (unlink(PIPENAME_2) == -1)printf("Error unlinking pipe PIPENAME_2: %s\n", strerror(errno));
+  if (unlink(PIPENAME_2) == -1)print("ERROR UNLINKING PIPE PIPENAME_2\n");
 
   //Close log file and destroy semaphore
-  if (fclose(log_file) == EOF)printf("Error closing log file: %s\n", strerror(errno));
-  if (sem_close(log_semaphore) == -1)printf("Error closing log semaphore: %s\n", strerror(errno));
-  if (sem_unlink(LOG_SEM_NAME) == -1)printf("Error unlinking log semaphore: %s\n", strerror(errno));
-  if (sem_close(array_sem) == -1)printf("Error closing array semaphore: %s\n", strerror(errno));
-  if (sem_unlink(ARRAY_SEM_NAME) == -1)printf("Error unlinking array semaphore: %s\n", strerror(errno));
-  if (sem_close(worker_sem) == -1)printf("Error closing worker semaphore: %s\n", strerror(errno));
-  if (sem_unlink(WORKER_SEM_NAME) == -1)printf("Error unlinking worker semaphore: %s\n", strerror(errno));
+  if (fclose(log_file) == EOF)print("ERROR CLOSING LOG FILE\n");
+  if (sem_close(log_semaphore) == -1)print("ERROR CLOSING LOG_SEMAPHORE\n");
+  if (sem_unlink(LOG_SEM_NAME) == -1)print("ERROR UNLINKING LOG_SEMAPHORE\n");
+  if (sem_close(array_sem) == -1)print("ERROR CLOSING ARRAY_SEMAPHORE\n");
+  if (sem_unlink(ARRAY_SEM_NAME) == -1)print("ERROR UNLINKING ARRAY_SEMAPHORE\n");
+  if (sem_close(worker_sem) == -1)print("ERROR CLOSING WORKER_SEMAPHORE\n");
+  if (sem_unlink(WORKER_SEM_NAME) == -1)print("ERROR UNLINKING WORKER_SEMAPHORE\n");
 
   //CLOSE PROCESSES
   // if (alerts_watcher_process > 0) kill(alerts_watcher_process, SIGTERM);
@@ -272,7 +277,7 @@ void *sensor_reader(void *arg){
 
   // Opens the pipe for reading
   if ((fd_1 = open(PIPENAME_1, O_RDONLY)) < 0) {
-    perror("Cannot open pipe for reading: ");
+    print("CANNOT OPEN PIPENAME_1 FOR READING -> THREAD SENSOR_READER\n");
     exit(0);
   }
 
@@ -297,8 +302,7 @@ void *sensor_reader(void *arg){
 
           else
           {
-            printf("Internal queue is full! Discarding message!\n");
-            print("Internal queue is full! Discarding message!\n");
+            print("QUEUE IS FULL! DISCARDING MESSAGE\n");
           }
       } 
   }
@@ -309,7 +313,7 @@ void *console_reader(void *arg){
   
   // Opens the pipe for reading
   if ((fd_2 = open(PIPENAME_2, O_RDONLY)) < 0) {
-    perror("Cannot open pipe for reading: ");
+    print("CANNOT OPEN PIPENAME_2 FOR READING -> THREAD CONSOLE_READER\n");
     exit(0);
   }
 
@@ -341,6 +345,7 @@ void *console_reader(void *arg){
 void *dispatcher_reader(void *arg){
 
   int first_time = 1;
+  char buf_state[256];
 
   struct DispatcherArgs *args = (struct DispatcherArgs*) arg;
   int (*pipes)[2] = args->pipes;
@@ -355,7 +360,6 @@ void *dispatcher_reader(void *arg){
     }
 
     char *msg = dequeue(queue);
-    if (msg != NULL) printf("Message rcv by dispatcher: %s", msg);
 
     if (queue_size(queue) == (config->queue_slot_number - 1)) {
       // Notify waiting threads that there is space available in the queue
@@ -375,6 +379,8 @@ void *dispatcher_reader(void *arg){
         if (worker_state == 1) {
           free_worker = i;
           worker_state = 0;
+          sprintf(buf_state, "WORKER %d BUSY\n",i);
+          print(buf_state);
           first_time++;
           break;
         }
@@ -391,6 +397,8 @@ void *dispatcher_reader(void *arg){
         if (worker_state == 1) {
           free_worker = i;
           worker_state = 0;
+          sprintf(buf_state, "WORKER %d BUSY\n",i);
+          print(buf_state);
           break;
         }
       }
@@ -401,9 +409,10 @@ void *dispatcher_reader(void *arg){
     close(pipes[free_worker][0]);
     int bytes_written = write(pipes[free_worker][1], msg, strlen(msg));
     if (bytes_written < 0) {
-      perror("Error writing to pipe");
-      exit(1);
+      print("ERROR WRITING UNNAMED_PIPE -> THREAD_DISPATCHER");
+      kill(getpid(), SIGINT);
     }
+    memset(buf_state, 0, 256);
   }
   
   return NULL;
