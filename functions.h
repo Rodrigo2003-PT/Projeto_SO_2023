@@ -31,8 +31,9 @@ void destroyQueue(struct Queue* queue);
 void enqueue(struct Queue* queue, char *command);
 
 
-//Log_writing
+//Log_writing || Dispatcher
 void print(char *result);
+void process_dispatcher_message(char *msg, int pipes[][2]);
 
 
 #endif 

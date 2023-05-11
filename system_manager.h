@@ -13,14 +13,16 @@
 #define WORKER_SEM_NAME "worker_semaphore"
 #define ARRAY_SEM_NAME "array_semaphore"
 #define ALERTS_SEM_NAME "alerts_semaphore"
+#define CONTROL_SEM_NAME "control_semaphore"
 
-pthread_mutex_t queue_mutex = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t queue_cond = PTHREAD_COND_INITIALIZER;
-pthread_cond_t cond_block = PTHREAD_COND_INITIALIZER;
+pthread_mutex_t queue_sensor_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t queue_console_mutex = PTHREAD_MUTEX_INITIALIZER;
+pthread_cond_t cond_block_console = PTHREAD_COND_INITIALIZER;
 
 struct DispatcherArgs {
   int (*pipes)[2];
-  struct Queue* queue;
+  struct Queue* queue_sensor;
+  struct Queue* queue_console;
 };
 
 void create_unnamed_pipes(int pipes[][2]);

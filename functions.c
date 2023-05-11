@@ -1,6 +1,9 @@
 //Rodrigo Sá 2021213188
 //Miguel Miranda 2021212100
 
+//TO-DO
+//FINISHED
+
 #include "functions.h"
 #include "shared_mem.h"
 #include <time.h>
@@ -146,6 +149,28 @@ char *read_from_pipe(int pipe_fd){
         data[bytes_read] = '\0';
         return data;
     }
+}
+
+void process_dispatcher_message(char *msg, int pipes[][2]){
+    char buf_state[256];
+    int free_worker = -1;
+    // Wait for one to become available
+    sem_wait(worker_sem);
+    sem_wait(array_sem);
+    for (int i = 0; i < config->num_workers; i++) {
+    int worker_state = *(first_worker + i);
+    if (worker_state == 1) {
+        free_worker = i;
+        *(first_worker + i) = 0;
+        sprintf(buf_state, "WORKER %d BUSY\n",i);
+        print(buf_state);
+        break;
+    }
+    }
+    sem_post(array_sem);
+    // Send the message to the worker
+    close(pipes[free_worker][0]);
+    write(pipes[free_worker][1], msg, strlen(msg));
 }
 
 // Function to create a new node

@@ -38,8 +38,9 @@ int main(){
   create_named_pipe(PIPENAME_2);
   create_msq();
 
-  queue = createQueue();
-  struct DispatcherArgs dispatcher_args = { .pipes = pipes, .queue = queue };
+  queue_sensor = createQueue();
+  queue_console = createQueue();
+  struct DispatcherArgs dispatcher_args = { .pipes = pipes, .queue_sensor = queue_sensor, .queue_console = queue_console };
 
   alerts_watcher_process = fork();
   if(alerts_watcher_process == 0){
@@ -61,7 +62,7 @@ int main(){
   print("WORKERS CREATED\n");
 
   // Create threads
-  if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue) != 0) {
+  if (pthread_create(&console_reader_thread, NULL, console_reader, (void*) queue_console) != 0) {
     print("CANNOT CREATE CONSOLE_THREAD\n");
     exit(1);
   }
@@ -71,7 +72,7 @@ int main(){
     exit(1);
   }
 
-  if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue) != 0) {
+  if (pthread_create(&sensor_reader_thread, NULL, sensor_reader,(void*) queue_sensor) != 0) {
     print("CANNOT CREATE SENSOR_THREAD\n");
     exit(1);
   }
@@ -152,6 +153,13 @@ void init_program(){
   sem_unlink(ALERTS_SEM_NAME);
   alerts_sem = sem_open(ALERTS_SEM_NAME, O_CREAT | O_EXCL, 0666, 0);
   if (alerts_sem == SEM_FAILED) {
+      perror("sem_open");
+      exit(1);
+  }
+
+  sem_unlink(CONTROL_SEM_NAME);
+  control_sem = sem_open(CONTROL_SEM_NAME, O_CREAT | O_EXCL, 0666, 0);
+  if (control_sem == SEM_FAILED) {
       perror("sem_open");
       exit(1);
   }
@@ -236,8 +244,8 @@ void cleanup(int sig) {
   pthread_cancel(sensor_reader_thread);
   pthread_cancel(console_reader_thread);
 
-  write_Queue(queue);
-  destroyQueue(queue);
+  write_Queue(queue_sensor);
+  destroyQueue(queue_sensor);
 
   //Detach/delete shared memory
   if (shmdt(sensor) == -1)print("ERROR DETACHING SHM SEGMENT\n");
@@ -268,7 +276,10 @@ void cleanup(int sig) {
   if (sem_unlink(ARRAY_SEM_NAME) == -1)print("ERROR UNLINKING ARRAY_SEMAPHORE\n");
   if (sem_close(worker_sem) == -1)print("ERROR CLOSING WORKER_SEMAPHORE\n");
   if (sem_unlink(WORKER_SEM_NAME) == -1)print("ERROR UNLINKING WORKER_SEMAPHORE\n");
+  if (sem_close(control_sem) == -1)print("ERROR CLOSING CONTROL_SEMAPHORE\n");
+  if (sem_unlink(CONTROL_SEM_NAME) == -1)print("ERROR UNLINKING CONTROL_SEMAPHORE\n");
   if (fclose(log_file) == EOF)print("ERROR CLOSING LOG FILE\n");
+  
 
   free(configs);
   exit(0);
@@ -295,10 +306,10 @@ void *sensor_reader(void *arg){
       if (bytes_read > 0) {
           // Tenta inserir a mensagem na fila interna
           if (queue_size(queue) < config->queue_slot_number){
-            pthread_mutex_lock(&queue_mutex);
+            pthread_mutex_lock(&queue_sensor_mutex);
             enqueue(queue,buffer);
-            pthread_mutex_unlock(&queue_mutex);
-            pthread_cond_signal(&queue_cond);
+            pthread_mutex_unlock(&queue_sensor_mutex);
+            sem_post(control_sem);
           }
 
           else
@@ -330,75 +341,58 @@ void *console_reader(void *arg){
       ssize_t bytes_read = read(fd_2, buffer, MESSAGE_SIZE);
 
       if (bytes_read > 0) {
-        pthread_mutex_lock(&queue_mutex);
+        pthread_mutex_lock(&queue_console_mutex);
         while (queue_size(queue) >= config->queue_slot_number) {
           // The queue is full, so wait until there is space available
-          int ret = pthread_cond_wait(&cond_block, &queue_mutex);
+          int ret = pthread_cond_wait(&cond_block_console, &queue_console_mutex);
           if (ret == EINTR) {
               pthread_exit(NULL);
           }
         }
         enqueue(queue, buffer);
-        pthread_mutex_unlock(&queue_mutex);
-        pthread_cond_signal(&queue_cond);
+        pthread_mutex_unlock(&queue_console_mutex);
+        sem_post(control_sem);
       }
   }
   return NULL; 
 };
 
 void *dispatcher_reader(void *arg){
-  char buf_state[256];
-
   struct DispatcherArgs *args = (struct DispatcherArgs*) arg;
   int (*pipes)[2] = args->pipes;
-  struct Queue* queue = args->queue;
+  struct Queue* queue_sensor = args->queue_sensor;
+  struct Queue* queue_console = args->queue_console;
 
   while (running) {
-
-    // Check if there are messages in the queue
-    pthread_mutex_lock(&queue_mutex);
-    while (isEmpty(queue)) {
-      int ret = pthread_cond_wait(&queue_cond, &queue_mutex);
-      if (ret == EINTR) {
-          pthread_exit(NULL);
+    sem_wait(control_sem);
+    // Check if there are messages in the queue_console
+    pthread_mutex_lock(&queue_console_mutex);
+    if (!isEmpty(queue_console)) {
+      while (!isEmpty(queue_console)){
+        char *msg = dequeue(queue_console);
+        if (queue_size(queue_console) == (config->queue_slot_number - 1)) {
+          // Notify waiting threads that there is space available in the queue
+          pthread_mutex_unlock(&queue_console_mutex);
+          pthread_cond_signal(&cond_block_console);
+        }
+        else
+          pthread_mutex_unlock(&queue_console_mutex);
+        process_dispatcher_message(msg,pipes);
       }
     }
-
-    char *msg = dequeue(queue);
-
-    if (queue_size(queue) == (config->queue_slot_number - 1)) {
-      // Notify waiting threads that there is space available in the queue
-      pthread_mutex_unlock(&queue_mutex);
-      pthread_cond_signal(&cond_block);
+    else{
+      pthread_mutex_unlock(&queue_console_mutex);
     }
-    else
-      pthread_mutex_unlock(&queue_mutex);
-
-    int free_worker = -1;
-    // Wait for one to become available
-    sem_wait(worker_sem);
-    sem_wait(array_sem);
-    for (int i = 0; i < config->num_workers; i++) {
-      int worker_state = *(first_worker + i);
-      if (worker_state == 1) {
-        free_worker = i;
-        *(first_worker + i) = 0;
-        sprintf(buf_state, "WORKER %d BUSY\n",i);
-        print(buf_state);
-        break;
-      }
+    // Check if there are messages in the queue_sensor
+    pthread_mutex_lock(&queue_sensor_mutex);
+    if (!isEmpty(queue_sensor)) {
+      char *msg = dequeue(queue_sensor);
+      pthread_mutex_unlock(&queue_sensor_mutex);
+      process_dispatcher_message(msg,pipes);
     }
-    sem_post(array_sem);
-
-    // Send the message to the worker
-    close(pipes[free_worker][0]);
-    int bytes_written = write(pipes[free_worker][1], msg, strlen(msg));
-    if (bytes_written < 0) {
-      print("ERROR WRITING UNNAMED_PIPE -> THREAD_DISPATCHER");
-      kill(getpid(), SIGINT);
+    else{
+        pthread_mutex_unlock(&queue_sensor_mutex);
     }
-    memset(buf_state, 0, 256);
   }
-  
   return NULL;
 };

@@ -2,7 +2,7 @@
 //Miguel Miranda 2021212100
 
 //TO-DO
-//Process messages from user_console
+//FINISHED
 
 #include "worker.h"
 

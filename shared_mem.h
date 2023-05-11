@@ -89,7 +89,9 @@ typedef struct Queue {
 }Queue;
 
 // Queue Pointer
-struct Queue* queue;
+struct Queue* queue_sensor;
+struct Queue* queue_console;
+
 
 //Struct to save config files
 config_struct *config;
@@ -99,9 +101,12 @@ int msq_id;
 
 //Shared memory id
 int shm_id;
+
+//Semaphores
 sem_t *array_sem;
 sem_t *alerts_sem;
 sem_t *worker_sem; 
+sem_t *control_sem; 
 
 //Log file management
 FILE *log_file;
