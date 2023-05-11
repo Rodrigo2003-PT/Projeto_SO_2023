@@ -57,6 +57,7 @@ typedef struct sensor_chave{
     int min_value;
     int max_value;
     int last_value;
+    time_t last_update;
     char chave[MAX_KEY_SIZE];
     char sensor[MAX_SENSOR_ID_SIZE];
     sensor_alerts alerts[ALERTS_PER_SENSOR];

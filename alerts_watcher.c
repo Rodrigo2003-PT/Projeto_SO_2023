@@ -4,13 +4,16 @@
 #include "alerts_watcher.h"
 
 void alerts_watcher_init(){
+    time_t temp_update[config->max_sensors];
+    memset(temp_update, 0, sizeof(temp_update));
     while(running) {
         sem_wait(alerts_sem);
         sem_wait(array_sem);
         for (int i = 0; i < config->max_keys; i++) {
             for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
                 if (strcmp(chave[i].chave, "") != 0 && chave[i].alerts[j].alert_flag == 1) {
-                    if (chave[i].last_value < chave[i].alerts[j].alert_min || chave[i].last_value > chave[i].alerts[j].alert_max) {
+                    if (chave[i].last_update != temp_update[i] && (chave[i].last_value < chave[i].alerts[j].alert_min || chave[i].last_value > chave[i].alerts[j].alert_max)) {
+                        temp_update[i] = chave[i].last_update;
                         alert_msg msg;
                         msg.mtype = chave[i].alerts[j].pid;
                         strcpy(msg.key, chave[i].chave);

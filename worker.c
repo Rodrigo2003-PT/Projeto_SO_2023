@@ -188,6 +188,7 @@ void worker_init(int* pipe_fd){
                     sem_wait(array_sem);
                     for(int i = 0; i < config->max_keys; i++){
                         if(strcmp(chave[i].chave, "") != 0){
+                            chave[i].last_update = time(NULL);
                             strcpy(chave[i].sensor,"");
                             strcpy(chave[i].chave, "");
                             chave[i].last_value = -999;
@@ -225,6 +226,7 @@ void worker_init(int* pipe_fd){
                                 if(ws.value < chave[j].min_value)chave[j].min_value = ws.value;
                                 if(ws.value > chave[j].max_value)chave[j].max_value = ws.value;
                                 chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
+                                chave[j].last_update = time(NULL);
                                 chave[j].count++;
                                 
                                 free(ws.id);
@@ -243,6 +245,7 @@ void worker_init(int* pipe_fd){
                                         chave[j].last_value = ws.value;
                                         chave[j].min_value = ws.value;
                                         chave[j].max_value = ws.value;
+                                        chave[j].last_update = time(NULL);
                                         chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
                                         
                                         free(ws.id);
@@ -282,6 +285,7 @@ void worker_init(int* pipe_fd){
                             chave[j].last_value = ws.value;
                             chave[j].min_value = ws.value;
                             chave[j].max_value = ws.value;
+                            chave[j].last_update = time(NULL);
                             chave[j].avg = (chave[j].last_value + chave[j].min_value + chave[j].max_value) / 3;
                             
                             free(ws.id);

@@ -121,6 +121,7 @@ void init_program(){
       .max_value = 999,
       .count = 0,
       .avg = -999,
+      .last_update = 0,
       .alerts = {{0}}
     };
     for (int j = 0; j < ALERTS_PER_SENSOR; j++) {
